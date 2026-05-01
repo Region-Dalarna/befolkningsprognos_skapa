@@ -4,6 +4,8 @@ library(bslib)
 
 source("R/kontext.R")
 
+source("R/domain/prognos_kor.R")
+
 source("R/konfiguration/ui_risk.R")
 source("R/konfiguration/ui_revidera_komponenter.R")
 source("R/konfiguration/ui_config.R")
