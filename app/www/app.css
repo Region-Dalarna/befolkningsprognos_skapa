@@ -1,0 +1,60 @@
+/* =========================
+   Konfiguration – layout
+   ========================= */
+
+.config-scroll {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+
+/* Sticky footer för kör-knappen */
+.config-footer {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  border-top: 1px solid #ddd;
+  padding: 1rem;
+  text-align: right;
+  z-index: 100;
+}
+
+/* =========================
+   Riskparametrar – headers
+   ========================= */
+
+.risk-header {
+  font-size: 0.76em;
+  font-weight: 600;
+  color: #555;
+  display: block;
+}
+
+.risk-header-row {
+  margin-bottom: 4px;
+}
+
+/* =========================
+   Revidera komponenter
+   ========================= */
+
+.scroll-cards {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* Säkerställ att cards inte får egen scroll */
+.scroll-cards .card {
+  overflow: visible;
+}
+
+/* Overlay som blockerar klick när revidering är av */
+.alt-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(255,255,255,0.55);
+  border-radius: 6px;
+  cursor: not-allowed;
+}
