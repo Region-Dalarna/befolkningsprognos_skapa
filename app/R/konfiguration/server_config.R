@@ -1,3 +1,4 @@
+
 server_config <- function(input, output, session, app_kontext) {
 
   # 1. Definiera listan med komponenter
@@ -118,41 +119,10 @@ server_config <- function(input, output, session, app_kontext) {
       duration = NULL
     )
 
-    resultat <- kor_prognos_stub(app_kontext$konfiguration)
+    resultat <- kor_prognos(app_kontext$konfiguration)
 
     app_kontext$resultat <- resultat
     app_kontext$fas <- "resultat"
 
   }, ignoreInit = TRUE)
 }
-
-
-
-kor_prognos_stub <- function(konfiguration) {
-  Sys.sleep(2)  # simulera beräkning
-
-  list(
-    metadata = list(
-      skapad = Sys.time(),
-      kommentar = "Detta är ett testresultat"
-    ),
-    data = NULL
-  )
-
-  output$korstatus <- renderUI({
-    if (app_kontext$fas == "korning") {
-      tags$span(
-        "⏳ Prognosen körs …",
-        style = "font-weight: 600; color: #c77c02;"
-      )
-    } else if (app_kontext$fas == "resultat") {
-      tags$span(
-        "✅ Prognosen är klar",
-        style = "font-weight: 600; color: #2c7d2c;"
-      )
-    }
-  })
-
-}
-
-
