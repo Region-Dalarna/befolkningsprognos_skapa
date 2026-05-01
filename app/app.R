@@ -5,6 +5,9 @@ library(bslib)
 source("R/kontext.R")
 
 source("R/domain/prognos_kor.R")
+source("R/domain/data_provider.R")
+source("R/domain/risk_kor.R")
+source("R/domain/prognos_enskild.R")
 
 source("R/konfiguration/ui_risk.R")
 source("R/konfiguration/ui_revidera_komponenter.R")
