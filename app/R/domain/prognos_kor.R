@@ -75,6 +75,9 @@ kor_prognos <- function(konfiguration,
     ))
   }
 
+  # Normalisera kolumnnamn (Alder→Ålder, Kon→Kön, etc.) och listnycklar
+  underlag <- normalisera_underlag(underlag)
+
   # ------------------------------------------------------------
   # 3) Riskberäkningar (in-memory)
   # ------------------------------------------------------------
