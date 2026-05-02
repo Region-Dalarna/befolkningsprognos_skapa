@@ -8,26 +8,27 @@
 # )
 #
 # Kolumnnamnen behöver INTE vara normaliserade – normalisera_underlag() hanterar
-# automatiskt följande varianter (se nedan):
-#   Alder / alder  →  Ålder
-#   Kon   / kon    →  Kön
-#   Ar    / ar     →  År
-#   Varde / varde  →  Värde
-#   variabel       →  Variabel
+# automatiskt följande varianter (DB levererar alltid gemener):
+#   region   →  Region
+#   alder    →  Ålder
+#   kon      →  Kön
+#   ar       →  År
+#   varde    →  Värde
+#   variabel →  Variabel
 #   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund
 #
 # Struktur för kommun_lista (DB-kolumnnamn inom parentes):
-#   $totfolkmangd          – tibble: Region, Ålder (Alder), Kön (Kon), År (Ar), Värde (Varde), Variabel
-#   $medelfolkmangd        – tibble: Region, Ålder (Alder), Kön (Kon), År (Ar), Värde (Varde)
-#   $medelfolkmangd_modrar – tibble: Region, År (Ar), Ålder (Alder), Värde (Varde)
-#   $fodda                 – tibble: Region, År (Ar), Ålder (Alder), Värde (Varde)
-#   $doda                  – tibble: Region, Ålder (Alder), Kön (Kon), År (Ar), Värde (Varde)
-#   $inrikes_inflyttade    – tibble: Region, År (Ar), Ålder (Alder), Kön (Kon), Värde (Varde)
-#   $inrikes_utflyttade    – tibble: Region, År (Ar), Ålder (Alder), Kön (Kon), Värde (Varde)
-#   $invandring            – tibble: Region, År (Ar), Ålder (Alder), Kön (Kon), Värde (Varde)
-#   $utvandring            – tibble: Region, År (Ar), Ålder (Alder), Kön (Kon), Värde (Varde)
-#   $inflyttningar_lansgrans_raw – tibble: Region, År (Ar), Ålder (Alder), Kön (Kon), Total, Ovriga_lan
-#   $utflyttningar_lansgrans_raw – tibble: Region, År (Ar), Ålder (Alder), Kön (Kon), Total, Ovriga_lan
+#   $totfolkmangd          – tibble: Region (region), Ålder (alder), Kön (kon), År (ar), Värde (varde), Variabel (variabel)
+#   $medelfolkmangd        – tibble: Region (region), Ålder (alder), Kön (kon), År (ar), Värde (varde)
+#   $medelfolkmangd_modrar – tibble: Region (region), År (ar), Ålder (alder), Värde (varde)
+#   $fodda                 – tibble: Region (region), År (ar), Ålder (alder), Värde (varde)
+#   $doda                  – tibble: Region (region), Ålder (alder), Kön (kon), År (ar), Värde (varde)
+#   $inrikes_inflyttade    – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
+#   $inrikes_utflyttade    – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
+#   $invandring            – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
+#   $utvandring            – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
+#   $inflyttningar_lansgrans_raw – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Total, Ovriga_lan
+#   $utflyttningar_lansgrans_raw – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Total, Ovriga_lan
 #
 # Struktur för riket_lista (DB-kolumnnamn inom parentes):
 #   $riket_prognosinvånare_grund (riket_prognosinvanare_grund) – tibble: År (ar), Ålder (alder), Kön (kon), Värde (varde)
@@ -54,15 +55,16 @@ hamta_underlag_stub <- function(konfiguration) {
 
 #' Normalisera kolumnnamn och listnycklar i underlagsobjektet.
 #'
-#' Hanterar skillnader mellan DB-kolumnnamn (utan svenska tecken / gemener)
-#' och de namn som domänkoden förväntar sig (med svenska tecken, versaler).
+#' Hanterar skillnader mellan DB-kolumnnamn (gemener, utan svenska tecken)
+#' och de namn som domänkoden förväntar sig (versaler, med svenska tecken).
 #'
 #' Mappning som utförs automatiskt:
-#'   Alder / alder  →  Ålder
-#'   Kon   / kon    →  Kön
-#'   Ar    / ar     →  År
-#'   Varde / varde  →  Värde
-#'   variabel       →  Variabel
+#'   region   →  Region
+#'   alder    →  Ålder
+#'   kon      →  Kön
+#'   ar       →  År
+#'   varde    →  Värde
+#'   variabel →  Variabel
 #'   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund
 #'
 #' @param underlag list med $kommun_lista och $riket_lista
@@ -71,6 +73,7 @@ normalisera_underlag <- function(underlag) {
 
   # Mappning: lista av möjliga DB-namn → önskat kodnamn
   kolumn_mapping <- list(
+    "Region"   = c("region"),
     "Ålder"    = c("alder", "Alder"),
     "Kön"      = c("kon",   "Kon"),
     "År"       = c("ar",    "Ar"),
