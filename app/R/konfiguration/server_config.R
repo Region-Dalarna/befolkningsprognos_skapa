@@ -103,8 +103,101 @@ server_config <- function(input, output, session, app_kontext) {
     })
   }
 
-  observeEvent(input$kor, {
+  # ------------------------------------------------------------------
+  # Samlar konfiguration från Shiny-inputs + alt_perioder-reaktiver.
+  # Definierad inuti server_config så att den stänger in över alt_perioder.
+  # ------------------------------------------------------------------
+  samla_konfiguration_fran_input <- function(input) {
 
+    komp_ids <- c("fodelserisker", "dodsrisker", "inflyttningsrisker",
+                  "utflyttningsrisker", "invandringsrisker", "utvandringsrisker")
+
+    # --- Riskparametrar ---
+    riskparametrar <- lapply(
+      setNames(komp_ids, komp_ids),
+      function(id) {
+        vtyp   <- as.integer(input[[paste0("risk_vtyp_", id)]])
+        params <- list(
+          antal_ar     = as.integer(input[[paste0("risk_ar_", id)]]),
+          viktningstyp = vtyp
+        )
+        if (!is.na(vtyp) && vtyp == 3) {
+          alpha_val    <- input[[paste0("risk_alpha_", id)]]
+          params$alpha <- if (!is.null(alpha_val)) as.numeric(alpha_val) else 0.33
+        }
+        params
+      }
+    )
+
+    # --- Alternativ-justeringar (endast om aktiverade) ---
+    alt_aktivera <- isTRUE(input$alt_aktivera)
+    alternativ_justeringar <- if (alt_aktivera) {
+      lapply(
+        setNames(komp_ids, komp_ids),
+        function(id) {
+          df <- alt_perioder[[id]]()
+          perioder <- lapply(seq_len(nrow(df)), function(i) {
+            list(
+              från_år       = as.integer(df$fran[i]),
+              till_år       = as.integer(df$till[i]),
+              multiplikator = as.numeric(df$mult[i])
+            )
+          })
+          list(perioder = perioder)
+        }
+      )
+    } else {
+      NULL
+    }
+
+    # --- Geografi (namn via cachat hamta_geografi_val()) ---
+    geo_data         <- hamta_geografi_val()
+    enskild_val_flat <- unlist(geo_data$enskild_val)
+    lan_val          <- geo_data$lan_val
+
+    geo_enskild_kod  <- input$geografi_enskild %||% ""
+    geo_enskild_namn <- names(enskild_val_flat)[enskild_val_flat == geo_enskild_kod]
+    if (length(geo_enskild_namn) == 0) geo_enskild_namn <- geo_enskild_kod
+
+    geo_regional_kod  <- input$geografi_regional %||% ""
+    geo_regional_namn <- names(lan_val)[lan_val == geo_regional_kod]
+    if (length(geo_regional_namn) == 0) geo_regional_namn <- geo_regional_kod
+
+    # --- Konfigurationslista (snake_case) ---
+    list(
+      prognostyp = input$prognostyp %||% "enskild",
+      scenario   = if (alt_aktivera) "alternativ" else "standard",
+
+      prognos_start = NULL,   # härleds från data i kor_prognos_enskild_in_memory
+      prognos_slut  = as.integer(input$prognos_slut),
+
+      enskild_geografi = list(
+        namn = geo_enskild_namn,
+        kod  = geo_enskild_kod
+      ),
+
+      regional_installningar = list(
+        lan     = geo_regional_namn,
+        lan_kod = geo_regional_kod
+      ),
+
+      riskparametrar         = riskparametrar,
+      alternativ_justeringar = alternativ_justeringar,
+
+      avrundning                                     = "heltal",
+      bevara_summa_auto_spline_utvandring            = FALSE,
+      bevara_summa_auto_spline_inflyttning_lansgrans = FALSE,
+      bevara_summa_auto_spline_inflyttning           = TRUE,
+      bevara_niva_per_ar_inflyttning                 = FALSE,
+
+      # Övriga UI-val (sparas för referens)
+      ckm                   = isTRUE(input$ckm),
+      namnare_dodsrisker    = input$namnare_dodsrisker %||% "medelfolkmangd",
+      dodsfall_fore_aldring = isTRUE(input$dodsfall_fore_aldring)
+    )
+  }
+
+  observeEvent(input$kor, {
     app_kontext$konfiguration <- samla_konfiguration_fran_input(input)
     app_kontext$fas <- "korning"
   })
@@ -115,14 +208,31 @@ server_config <- function(input, output, session, app_kontext) {
 
     showNotification(
       "Prognosen körs …",
-      type = "message",
+      type     = "message",
       duration = NULL
     )
 
-    resultat <- kor_prognos(app_kontext$konfiguration)
+    resultat <- tryCatch(
+      kor_prognos(
+        konfiguration = app_kontext$konfiguration,
+        data_provider = hamta_underlag_db
+      ),
+      error = function(e) {
+        showNotification(
+          paste("Fel vid prognoskörning:", conditionMessage(e)),
+          type     = "error",
+          duration = 10
+        )
+        NULL
+      }
+    )
 
-    app_kontext$resultat <- resultat
-    app_kontext$fas <- "resultat"
+    if (!is.null(resultat)) {
+      app_kontext$resultat <- resultat
+      app_kontext$fas      <- "resultat"
+    } else {
+      app_kontext$fas <- "konfiguration"
+    }
 
   }, ignoreInit = TRUE)
 }

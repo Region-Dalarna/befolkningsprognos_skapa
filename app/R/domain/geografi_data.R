@@ -1,4 +1,9 @@
+# Enkel cache så att nätverksanropet bara görs en gång per Shiny-session
+.geo_cache <- NULL
+
 hamta_geografi_val <- function() {
+
+  if (!is.null(.geo_cache)) return(.geo_cache)
 
   source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_API.R", encoding = "utf-8", echo = FALSE)
 
@@ -14,14 +19,17 @@ hamta_geografi_val <- function() {
 
   is_lan <- nchar(geo_df$regionkod) == 2
 
-  lan_val <- setNames(geo_df$regionkod[is_lan], geo_df$region[is_lan])
+  lan_val    <- setNames(geo_df$regionkod[is_lan],  geo_df$region[is_lan])
   kommun_val <- setNames(geo_df$regionkod[!is_lan], geo_df$region[!is_lan])
 
-  list(
+  result <- list(
     lan_val = lan_val,
     enskild_val = list(
-      "Län" = lan_val,
-      "Kommun" = kommun_val
+      "Län"     = lan_val,
+      "Kommun"  = kommun_val
     )
   )
+
+  .geo_cache <<- result
+  result
 }
