@@ -40,6 +40,9 @@ formatera_vikter <- function(antal_ar, viktningstyp, alpha = 0.5) {
     metod  <- "Okänd viktning"
   }
 
+  # År-vektorn är approximativ för visning: baseras på innevarande år minus
+  # antal historiska år. Syftet är att ge ett ungefärligt årsintervall i
+  # metod-informationspanelen – exakta år finns i datatabellerna.
   ar_nu     <- as.numeric(format(Sys.Date(), "%Y"))
   ar_vektor <- seq(ar_nu - antal_ar, ar_nu - 1)
   vikt_text <- paste(ar_vektor, sprintf("%.1f%%", vikter * 100),
@@ -702,6 +705,9 @@ skapa_ettarsklass_data <- function(prognos, komponent_typ, valda_ar,
           summarise(Antal_kv = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
           mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(historiska_ar_tillg))
 
+        # Normalfördelning (medel=30, sd=5) ger en rimlig approximation av
+        # hur födslar fördelar sig på moderns ålder (15-49 år) när exakta
+        # åldersspecifika födelsedata saknas för historiska år.
         alder_fordeln <- tibble(Ålder = 15:49,
                                 Vikt  = dnorm(15:49, mean = 30, sd = 5)) %>%
           mutate(Vikt = Vikt / sum(Vikt))
