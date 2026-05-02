@@ -1,6 +1,11 @@
 
 library(shiny)
 library(bslib)
+library(ggplot2)
+library(ggiraph)
+library(dplyr)
+library(tidyr)
+library(scales)
 
 source("R/kontext.R")
 
@@ -14,7 +19,7 @@ source("R/konfiguration/ui_revidera_komponenter.R")
 source("R/konfiguration/ui_config.R")
 source("R/konfiguration/server_config.R")
 
-
+source("R/resultat/diagram_funktioner.R")
 source("R/resultat/ui_resultat.R")
 source("R/resultat/server_resultat.R")
 

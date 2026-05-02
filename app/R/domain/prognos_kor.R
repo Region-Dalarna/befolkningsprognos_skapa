@@ -103,6 +103,9 @@ kor_prognos <- function(konfiguration,
     ),
     konfiguration = konfiguration,
     risktal       = risktal,   # list av 6 tibbles
-    prognos       = prognos    # list: geografi, totalbefolkning, komponenter, sammanfattning
+    prognos       = prognos,   # list: geografi, totalbefolkning, komponenter, sammanfattning
+    underlag      = list(      # historiska underlagsdata – krävs för att rita historiska serier
+      kommun_lista = underlag$kommun_lista
+    )
   )
 }
