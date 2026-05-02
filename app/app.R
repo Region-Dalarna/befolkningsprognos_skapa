@@ -5,6 +5,8 @@ library(ggplot2)
 library(ggiraph)
 library(dplyr)
 library(tidyr)
+library(purrr)
+library(dbplyr)
 library(scales)
 
 source("R/kontext.R")

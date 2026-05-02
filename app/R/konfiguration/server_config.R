@@ -215,7 +215,7 @@ server_config <- function(input, output, session, app_kontext) {
     resultat <- tryCatch(
       kor_prognos(
         konfiguration = app_kontext$konfiguration,
-        data_provider = hamta_underlag_stub
+        data_provider = hamta_underlag_db
       ),
       error = function(e) {
         showNotification(

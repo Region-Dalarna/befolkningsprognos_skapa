@@ -36,7 +36,7 @@
 #   $fodelsetal                  – tibble: År (ar), Ålder (alder), Värde (varde)  (fruktsamhetskvoter)
 #   $dodstal                     – tibble: År (ar), Ålder (alder), Kön (kon), Värde (varde), Variabel (variabel)
 
-#' Stub: används tills riktig DB-koppling är implementerad.
+#' Stub: används som fallback om DB-koppling saknas.
 #'
 #' @param konfiguration list – konfigurationslista från Shiny
 #' @return Genererar ett tydligt fel med instruktioner.
@@ -51,6 +51,69 @@ hamta_underlag_stub <- function(konfiguration) {
     "och skicka den som data_provider-argument till kor_prognos():\n",
     "  kor_prognos(konfiguration, data_provider = min_hamta_underlag_funktion)"
   ))
+}
+
+#' Hämta underlag från Region Dalarnas interna databas (oppna_data / scb-schema).
+#'
+#' Använder `shiny_uppkoppling_las()` från Region-Dalarnas hjälpbibliotek.
+#' Funktionen sourcear automatiskt `func_shinyappar.R` första gången den anropas.
+#'
+#' @param konfiguration list – konfigurationslista från Shiny (används ej för
+#'   filtrering här; all filtrering sker i riskberäknings- och
+#'   prognoskoden).
+#' @return list(kommun_lista = ..., riket_lista = ...) enligt kontraktet ovan.
+hamta_underlag_db <- function(konfiguration) {
+
+  # Source DB-hjälpfunktionen vid behov (bara en gång per session)
+  if (!exists("shiny_uppkoppling_las", mode = "function")) {
+    source(
+      "https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_shinyappar.R",
+      encoding = "utf-8",
+      echo     = FALSE
+    )
+  }
+
+  uppkoppling <- shiny_uppkoppling_las("oppna_data")
+
+  # --- Kommuntabeller ---
+  kommunlista_namn <- c(
+    "medelfolkmangd",
+    "medelfolkmangd_modrar",
+    "fodda",
+    "doda",
+    "invandring",
+    "utvandring",
+    "inrikes_inflyttade",
+    "inrikes_utflyttade",
+    "totfolkmangd",
+    "totfolkmangd_modrar",
+    "inflyttningar_lansgrans_raw",
+    "utflyttningar_lansgrans_raw"
+  )
+
+  kommun_lista <- purrr::set_names(kommunlista_namn) |>
+    purrr::imap(~ dplyr::tbl(uppkoppling,
+                              dbplyr::in_schema("scb", .x)) |>
+                  dplyr::collect())
+
+  # --- Rikstabeller ---
+  riketlista_namn <- c(
+    "dodstal",
+    "fodelsetal",
+    "invandring_riket",
+    "inrikesflyttningar_riket",
+    "riket_prognosinvanare_grund"
+  )
+
+  riket_lista <- purrr::set_names(riketlista_namn) |>
+    purrr::imap(~ dplyr::tbl(uppkoppling,
+                              dbplyr::in_schema("scb", .x)) |>
+                  dplyr::collect())
+
+  list(
+    kommun_lista = kommun_lista,
+    riket_lista  = riket_lista
+  )
 }
 
 #' Normalisera kolumnnamn och listnycklar i underlagsobjektet.
