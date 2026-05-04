@@ -375,7 +375,7 @@ skapa_komponent_data <- function(prognos, komponent_typ,
   for (ar in alla_prognos_ar) {
     ar_komp <- prognos$komponenter[[ar]]
 
-    varde_val <- switch(
+    valt_varde <- switch(
       komponent_typ,
       "Födda"                    = sum(ar_komp$fodda$varde, na.rm = TRUE),
       "Döda"                     = sum(ar_komp$doda$varde, na.rm = TRUE),
@@ -422,7 +422,7 @@ skapa_komponent_data <- function(prognos, komponent_typ,
 
     prognos_data <- bind_rows(prognos_data,
                               tibble(ar = as.numeric(ar),
-                                     varde = varde_val,
+                                     varde = valt_varde,
                                      Komponent = komponent_typ,
                                      Dataserie = "Prognos"))
   }
