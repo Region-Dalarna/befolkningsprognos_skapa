@@ -1,8 +1,8 @@
-ui_config <- function(app_kontext) {
+ui_config <- function(app_kontext, lan_i_data, geografier_i_data) {
 
   geo <- hamta_geografi_val()
-  lan_val <- geo$lan_val
-  enskild_val <- geo$enskild_val
+  lan_val <- lan_i_data
+  enskild_val <- geografier_i_data
 
   tagList(
 
@@ -34,7 +34,8 @@ ui_config <- function(app_kontext) {
                        selectizeInput(
                          "geografi_regional",
                          "Välj län",
-                         choices = lan_val
+                         choices = lan_val,
+                         selected = "Dalarnas län"
                        )
                      ),
                      conditionalPanel(
@@ -42,7 +43,8 @@ ui_config <- function(app_kontext) {
                        selectizeInput(
                          "geografi_enskild",
                          "Välj län eller kommun",
-                         choices = enskild_val
+                         choices = enskild_val,
+                         selected = "Dalarnas län"
                        )
                      )
                    )

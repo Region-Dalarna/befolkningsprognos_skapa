@@ -205,6 +205,8 @@ server_config <- function(input, output, session, app_kontext) {
   observeEvent(app_kontext$fas, {
 
     if (app_kontext$fas != "korning") return()
+    shinyjs::disable("kor")
+    on.exit(shinyjs::enable("kor"), add = TRUE)
 
     showNotification(
       "Prognosen körs …",
@@ -212,15 +214,19 @@ server_config <- function(input, output, session, app_kontext) {
       duration = NULL
     )
 
-    resultat <- tryCatch(
-      kor_prognos(
+    resultat <- tryCatch({
+
+      hamtat_underlag <- hamta_underlag_db(app_kontext$konfiguration)
+
+      kor_prognos_enskild_in_memory(
         konfiguration = app_kontext$konfiguration,
-        data_provider = hamta_underlag_db
-      ),
+        underlag = hamtat_underlag,
+        risktal = kor_riskberakningar_in_memory(app_kontext$konfiguration, hamtat_underlag)
+      )},
       error = function(e) {
         showNotification(
           paste("Fel vid prognoskörning:", conditionMessage(e)),
-          type     = "error",
+          type = "error",
           duration = 10
         )
         NULL
@@ -229,7 +235,8 @@ server_config <- function(input, output, session, app_kontext) {
 
     if (!is.null(resultat)) {
       app_kontext$resultat <- resultat
-      app_kontext$fas      <- "resultat"
+      app_kontext$fas <- "resultat"
+      showNotification("✅ Prognos klar", type = "message", duration = 5)
     } else {
       app_kontext$fas <- "konfiguration"
     }

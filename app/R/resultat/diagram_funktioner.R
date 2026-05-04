@@ -467,11 +467,11 @@ skapa_komponent_data <- function(prognos, komponent_typ,
       "Inrikes flyttnetto" = if ("inrikes_inflyttade" %in% names(kommun_lista) &&
                                   "inrikes_utflyttade" %in% names(kommun_lista)) {
         inf_h <- kommun_lista$inrikes_inflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Inf = sum(Värde, na.rm = TRUE), .groups = "drop")
+          group_by(År) %>% summarise(Infl = sum(Värde, na.rm = TRUE), .groups = "drop")
         utf_h <- kommun_lista$inrikes_utflyttade %>% filter(Region == geografi_namn) %>%
           group_by(År) %>% summarise(Utf = sum(Värde, na.rm = TRUE), .groups = "drop")
         inf_h %>% left_join(utf_h, by = "År") %>%
-          mutate(Värde = Inf - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          mutate(Värde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
           select(År, Värde, Komponent, Dataserie)
       },
 
@@ -639,11 +639,11 @@ skapa_ettarsklass_data <- function(prognos, komponent_typ, valda_ar,
 
       "Inrikes flyttnetto" = {
         inf <- ar_komp$inrikes_inflyttning %>%
-          group_by(Ålder, År) %>% summarise(Inf = sum(Värde, na.rm = TRUE), .groups = "drop")
+          group_by(Ålder, År) %>% summarise(Infl = sum(Värde, na.rm = TRUE), .groups = "drop")
         utf <- ar_komp$inrikes_utflyttning %>%
           group_by(Ålder, År) %>% summarise(Utf = sum(Värde, na.rm = TRUE), .groups = "drop")
         inf %>% left_join(utf, by = c("Ålder", "År")) %>%
-          mutate(Värde = Inf - Utf, Komponent = komponent_typ, Dataserie = "Prognos") %>%
+          mutate(Värde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Prognos") %>%
           select(Ålder, År, Värde, Komponent, Dataserie)
       },
 
@@ -745,13 +745,13 @@ skapa_ettarsklass_data <- function(prognos, komponent_typ, valda_ar,
       "Inrikes flyttnetto" = if ("inrikes_inflyttade" %in% names(kommun_lista) &&
                                   "inrikes_utflyttade" %in% names(kommun_lista)) {
         inf_h <- kommun_lista$inrikes_inflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Inf = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+          group_by(Ålder, År) %>% summarise(Infl = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
           mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(valda_ar))
         utf_h <- kommun_lista$inrikes_utflyttade %>% filter(Region == geografi_namn) %>%
           group_by(Ålder, År) %>% summarise(Utf = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
           mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(valda_ar))
         inf_h %>% left_join(utf_h, by = c("Ålder", "År")) %>%
-          mutate(Värde = Inf - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          mutate(Värde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
           select(Ålder, År, Värde, Komponent, Dataserie)
       },
 

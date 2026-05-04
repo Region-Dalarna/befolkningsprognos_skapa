@@ -105,10 +105,10 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
     for (period in justeringar$perioder) {
       justerad_data <- justerad_data %>%
         mutate(
-          Värde = ifelse(
-            as.numeric(År) >= period$från_år & as.numeric(År) <= period$till_år,
-            Värde * period$multiplikator,
-            Värde
+          varde = ifelse(
+            as.numeric(ar) >= period$från_år & as.numeric(ar) <= period$till_år,
+            varde * period$multiplikator,
+            varde
           )
         )
     }
@@ -125,33 +125,33 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       params$alpha else 0.5
 
     senaste_ar <- kommun_lista$fodda %>%
-      dplyr::pull(År) %>% unique() %>% sort() %>% tail(antal_ar)
+      dplyr::pull(ar) %>% unique() %>% sort() %>% tail(antal_ar)
 
     fruktsamhet_raa <- kommun_lista$fodda %>%
-      filter(År %in% senaste_ar, Ålder >= 15, Ålder <= 49) %>%
+      filter(ar %in% senaste_ar, alder >= 15, alder <= 49) %>%
       inner_join(
-        kommun_lista$medelfolkmangd_modrar %>% filter(År %in% senaste_ar),
-        by = c("Region", "År", "Ålder")
+        kommun_lista$medelfolkmangd_modrar %>% filter(ar %in% senaste_ar),
+        by = c("region", "ar", "alder")
       ) %>%
       mutate(
-        fruktsamhetskvot = Värde.x / Värde.y,
+        fruktsamhetskvot = varde.x / varde.y,
         fruktsamhetskvot = ifelse(
           is.infinite(fruktsamhetskvot) | is.nan(fruktsamhetskvot),
           0, fruktsamhetskvot),
         fruktsamhetskvot = pmin(fruktsamhetskvot, 0.5)
       ) %>%
-      select(Region, År, Ålder,
-             fruktsamhetskvot, Antal_födda = Värde.x, Antal_kvinnor = Värde.y)
+      select(region, ar, alder,
+             fruktsamhetskvot, Antal_födda = varde.x, Antal_kvinnor = varde.y)
 
     tidsvikter <- berakna_tidsvikter(antal_ar, params$viktningstyp, alpha_varde)
     names(tidsvikter) <- senaste_ar
 
     poolad_data <- fruktsamhet_raa %>%
-      group_by(Region, Ålder) %>%
+      group_by(region, alder) %>%
       summarise(
-        viktad_antal_fodda   = sum(Antal_födda * tidsvikter[as.character(År)],
+        viktad_antal_fodda   = sum(Antal_födda * tidsvikter[as.character(ar)],
                                    na.rm = TRUE),
-        viktad_antal_kvinnor = sum(Antal_kvinnor * tidsvikter[as.character(År)],
+        viktad_antal_kvinnor = sum(Antal_kvinnor * tidsvikter[as.character(ar)],
                                    na.rm = TRUE),
         .groups = "drop"
       ) %>%
@@ -164,21 +164,21 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       )
 
     poolad_data_spline <- poolad_data %>%
-      group_by(Region) %>% arrange(Ålder) %>%
+      group_by(region) %>% arrange(alder) %>%
       mutate(
-        poolad_fruktsamhetskvot_spline = if (first(Region) == "Riket")
+        poolad_fruktsamhetskvot_spline = if (first(region) == "Riket")
           poolad_fruktsamhetskvot
         else
-          spline_auto(Ålder, poolad_fruktsamhetskvot, bevara_summa = TRUE)
+          spline_auto(alder, poolad_fruktsamhetskvot, bevara_summa = TRUE)
       ) %>%
       ungroup()
 
     riket_referens <- poolad_data_spline %>%
-      filter(Region == "Riket") %>%
-      select(Ålder, riket_fruktsamhetskvot = poolad_fruktsamhetskvot)
+      filter(region == "Riket") %>%
+      select(alder, riket_fruktsamhetskvot = poolad_fruktsamhetskvot)
 
     viktad_kvot <- poolad_data_spline %>%
-      left_join(riket_referens, by = "Ålder") %>%
+      left_join(riket_referens, by = "alder") %>%
       mutate(
         tidsviktad_kvot = poolad_fruktsamhetskvot / riket_fruktsamhetskvot,
         tidsviktad_kvot = ifelse(
@@ -186,37 +186,37 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
           1, tidsviktad_kvot),
         tidsviktad_kvot = pmin(pmax(tidsviktad_kvot, 0.1), 3)
       ) %>%
-      group_by(Region) %>% arrange(Ålder) %>%
+      group_by(region) %>% arrange(alder) %>%
       mutate(
-        tidsviktad_kvot_spline = if (first(Region) == "Riket")
+        tidsviktad_kvot_spline = if (first(region) == "Riket")
           1.0
         else
-          spline_auto(Ålder, tidsviktad_kvot, bevara_summa = FALSE)
+          spline_auto(alder, tidsviktad_kvot, bevara_summa = FALSE)
       ) %>%
       ungroup()
 
     fodelsetal_riksprognos <- riket_lista$fodelsetal %>%
-      filter(Ålder >= 15, Ålder <= 49)
+      filter(alder >= 15, alder <= 49)
 
     fruktsamhet_prognos <- expand_grid(
-      Region = unique(viktad_kvot$Region),
-      År    = unique(fodelsetal_riksprognos$År)
+      region = unique(viktad_kvot$region),
+      ar    = unique(fodelsetal_riksprognos$ar)
     ) %>%
       left_join(
-        fodelsetal_riksprognos %>% select(År, Ålder, Riksvärde = Värde),
-        by = "År", relationship = "many-to-many"
+        fodelsetal_riksprognos %>% select(ar, alder, Riksvärde = varde),
+        by = "ar", relationship = "many-to-many"
       ) %>%
       left_join(
-        viktad_kvot %>% select(Region, Ålder, tidsviktad_kvot_spline),
-        by = c("Region", "Ålder")
+        viktad_kvot %>% select(region, alder, tidsviktad_kvot_spline),
+        by = c("region", "alder")
       ) %>%
       mutate(
-        Värde    = if_else(Region == "Riket", Riksvärde,
+        varde    = if_else(region == "Riket", Riksvärde,
                            Riksvärde * tidsviktad_kvot_spline),
-        Kön      = "kvinnor",
-        Variabel = "Födelserisker"
+        kon      = "kvinnor",
+        variabel = "Födelserisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
     applicera_scenariojustering(fruktsamhet_prognos, "fodelserisker")
   }
@@ -249,36 +249,36 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
     aldersmappning <- tibble(
       Åldersgrupp = c("0", "1-4",
                       paste0(seq(5, 85, 5), "-", seq(9, 89, 5)), "90+"),
-      Ålder = list(0, 1:4, 5:9, 10:14, 15:19, 20:24, 25:29, 30:34, 35:39,
+      alder = list(0, 1:4, 5:9, 10:14, 15:19, 20:24, 25:29, 30:34, 35:39,
                    40:44, 45:49, 50:54, 55:59, 60:64, 65:69, 70:74, 75:79,
                    80:84, 85:89, 90:100)
-    ) %>% unnest(Ålder)
+    ) %>% unnest(alder)
 
     dodsrisker_summor <- kommun_lista$doda %>%
-      mutate(Åldersgrupp = gruppera_alder(Ålder)) %>%
-      group_by(Region, Kön, Åldersgrupp, År) %>%
-      summarise(Värde = sum(Värde), .groups = "drop") %>%
-      group_by(Region, Kön, Åldersgrupp) %>%
-      arrange(År) %>%
-      mutate(Flerårsgenomsnitt = berakna_summor(Värde, antal_ar)) %>%
+      mutate(Åldersgrupp = gruppera_alder(alder)) %>%
+      group_by(region, kon, Åldersgrupp, ar) %>%
+      summarise(varde = sum(varde), .groups = "drop") %>%
+      group_by(region, kon, Åldersgrupp) %>%
+      arrange(ar) %>%
+      mutate(Flerårsgenomsnitt = berakna_summor(varde, antal_ar)) %>%
       ungroup() %>%
-      filter(År == max(År))
+      filter(ar == max(ar))
 
     folkmangd_summor <- kommun_lista$totfolkmangd %>%
-      mutate(Åldersgrupp = gruppera_alder(Ålder)) %>%
-      group_by(Region, Kön, Åldersgrupp, År) %>%
-      summarise(Värde = sum(Värde), .groups = "drop") %>%
-      group_by(Region, Kön, Åldersgrupp) %>%
-      arrange(År) %>%
-      mutate(Flerårsgenomsnitt = berakna_summor(Värde, antal_ar)) %>%
+      mutate(Åldersgrupp = gruppera_alder(alder)) %>%
+      group_by(region, kon, Åldersgrupp, ar) %>%
+      summarise(varde = sum(varde), .groups = "drop") %>%
+      group_by(region, kon, Åldersgrupp) %>%
+      arrange(ar) %>%
+      mutate(Flerårsgenomsnitt = berakna_summor(varde, antal_ar)) %>%
       ungroup() %>%
-      filter(År == max(År))
+      filter(ar == max(ar))
 
     dodsrisker_prognosklar <- dodsrisker_summor %>%
       inner_join(
         folkmangd_summor %>%
-          select(Region, Kön, Åldersgrupp, År, Folkmangd_Flerars = Flerårsgenomsnitt),
-        by = c("Region", "Kön", "Åldersgrupp", "År")
+          select(region, kon, Åldersgrupp, ar, Folkmangd_Flerars = Flerårsgenomsnitt),
+        by = c("region", "kon", "Åldersgrupp", "ar")
       ) %>%
       mutate(Flerårsgenomsnitt = Flerårsgenomsnitt / Folkmangd_Flerars) %>%
       select(-Folkmangd_Flerars)
@@ -287,68 +287,68 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       mutate(Anvand_lansdata = Flerårsgenomsnitt <= 50)
 
     riket_risker <- dodsrisker_prognosklar %>%
-      filter(Region == "Riket") %>%
-      select(Kön, Åldersgrupp, År, Riket_risk = Flerårsgenomsnitt)
+      filter(region == "Riket") %>%
+      select(kon, Åldersgrupp, ar, Riket_risk = Flerårsgenomsnitt)
 
     dodsrisker_prognosklar <- dodsrisker_prognosklar %>%
-      left_join(riket_risker, by = c("Kön", "Åldersgrupp", "År")) %>%
+      left_join(riket_risker, by = c("kon", "Åldersgrupp", "ar")) %>%
       left_join(
         kontroll_tabell %>%
-          select(Region, Kön, Åldersgrupp, År, Anvand_lansdata),
-        by = c("Region", "Kön", "Åldersgrupp", "År")
+          select(region, kon, Åldersgrupp, ar, Anvand_lansdata),
+        by = c("region", "kon", "Åldersgrupp", "ar")
       ) %>%
       mutate(
         Flerårsgenomsnitt = if_else(
-          Region == "Riket" | !Anvand_lansdata,
+          region == "Riket" | !Anvand_lansdata,
           Flerårsgenomsnitt, Riket_risk)
       ) %>%
       select(-Riket_risk, -Anvand_lansdata)
 
     dodsrisker_riket <- dodsrisker_prognosklar %>%
-      filter(Region == "Riket") %>%
-      select(Kön, Åldersgrupp, Dodsrisk_riket = Flerårsgenomsnitt)
+      filter(region == "Riket") %>%
+      select(kon, Åldersgrupp, Dodsrisk_riket = Flerårsgenomsnitt)
 
     dodsrisker_relativ <- dodsrisker_prognosklar %>%
-      left_join(dodsrisker_riket, by = c("Kön", "Åldersgrupp")) %>%
+      left_join(dodsrisker_riket, by = c("kon", "Åldersgrupp")) %>%
       mutate(
         Kvot = dplyr::case_when(
-          Region == "Riket"                                 ~ 1,
+          region == "Riket"                                 ~ 1,
           is.na(Flerårsgenomsnitt / Dodsrisk_riket)        ~ 1,
           TRUE ~ Flerårsgenomsnitt / Dodsrisk_riket
         ),
         Kvot = pmax(0.7, pmin(1.3, Kvot))
       ) %>%
-      select(Region, Kön, Åldersgrupp, Kvot)
+      select(region, kon, Åldersgrupp, Kvot)
 
     dodsrisker_relativ_ettarsklasser <- dodsrisker_relativ %>%
       left_join(aldersmappning, by = "Åldersgrupp",
                 relationship = "many-to-many") %>%
-      select(Region, Kön, Ålder, Kvot) %>%
-      arrange(Region, Kön, Ålder)
+      select(region, kon, alder, Kvot) %>%
+      arrange(region, kon, alder)
 
     dodskvoter_riksprognos_justerad <- riket_lista$dodstal %>%
-      mutate(Ålder = pmin(Ålder, 100)) %>%
-      group_by(År, Kön, Ålder) %>%
+      mutate(alder = pmin(alder, 100)) %>%
+      group_by(ar, kon, alder) %>%
       summarise(
-        Värde    = mean(Värde),
-        Variabel = dplyr::first(Variabel),
+        varde    = mean(varde),
+        variabel = dplyr::first(variabel),
         .groups  = "drop"
       )
 
     kommun_prognos <- expand_grid(
-      Region = unique(dodsrisker_relativ_ettarsklasser$Region),
-      År    = unique(dodskvoter_riksprognos_justerad$År)
+      region = unique(dodsrisker_relativ_ettarsklasser$region),
+      ar    = unique(dodskvoter_riksprognos_justerad$ar)
     ) %>%
       left_join(dodskvoter_riksprognos_justerad,
-                by = "År", relationship = "many-to-many") %>%
+                by = "ar", relationship = "many-to-many") %>%
       left_join(dodsrisker_relativ_ettarsklasser,
-                by = c("Region", "Kön", "Ålder")) %>%
+                by = c("region", "kon", "alder")) %>%
       mutate(
         Kvot     = if_else(is.na(Kvot), 1, Kvot),
-        Värde    = if_else(Region == "Riket", Värde, Värde * Kvot),
-        Variabel = "Dödsrisker"
+        varde    = if_else(region == "Riket", varde, varde * Kvot),
+        variabel = "Dödsrisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
     applicera_scenariojustering(kommun_prognos, "dodsrisker")
   }
@@ -363,31 +363,31 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       params$alpha else 0.5
 
     inflyttade                       <- kommun_lista$inrikes_inflyttade %>%
-      filter(Region != "Riket")
+      filter(region != "Riket")
     riket_medelfolkmangd_historisk   <- kommun_lista$medelfolkmangd %>%
-      filter(Region == "Riket")
+      filter(region == "Riket")
     riket_medelfolkmangd_prognos     <- riket_lista$riket_prognosinvånare_grund
 
     senaste_ar <- inflyttade %>%
-      dplyr::pull(År) %>% unique() %>% sort() %>% tail(antal_ar)
+      dplyr::pull(ar) %>% unique() %>% sort() %>% tail(antal_ar)
 
     inflyttningsrisker_raa <- inflyttade %>%
-      filter(År %in% senaste_ar) %>%
+      filter(ar %in% senaste_ar) %>%
       inner_join(
         riket_medelfolkmangd_historisk %>%
-          filter(År %in% senaste_ar) %>%
-          select(År, Ålder, Kön, antal_riket = Värde),
-        by = c("År", "Ålder", "Kön")
+          filter(ar %in% senaste_ar) %>%
+          select(ar, alder, kon, antal_riket = varde),
+        by = c("ar", "alder", "kon")
       ) %>%
       mutate(
-        antal_inflyttade   = Värde,
+        antal_inflyttade   = varde,
         inflyttningsrisk   = antal_inflyttade / antal_riket,
         inflyttningsrisk   = ifelse(
           is.infinite(inflyttningsrisk) | is.nan(inflyttningsrisk),
           0, inflyttningsrisk),
         inflyttningsrisk   = pmin(inflyttningsrisk, 0.5)
       ) %>%
-      select(Region, År, Ålder, Kön,
+      select(region, ar, alder, kon,
              inflyttningsrisk, antal_inflyttade, antal_riket)
 
     tidsvikter <- berakna_tidsvikter(antal_ar, params$viktningstyp, alpha_varde)
@@ -395,11 +395,11 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
 
     poolad_data <- inflyttningsrisker_raa %>%
       filter(!is.na(antal_inflyttade), !is.na(antal_riket), antal_riket > 0) %>%
-      group_by(Region, Kön, Ålder) %>%
+      group_by(region, kon, alder) %>%
       summarise(
-        viktad_antal_inflyttade = sum(antal_inflyttade * tidsvikter[as.character(År)],
+        viktad_antal_inflyttade = sum(antal_inflyttade * tidsvikter[as.character(ar)],
                                       na.rm = TRUE),
-        viktad_antal_riket      = sum(antal_riket * tidsvikter[as.character(År)],
+        viktad_antal_riket      = sum(antal_riket * tidsvikter[as.character(ar)],
                                       na.rm = TRUE),
         poolad_inflyttningsrisk = viktad_antal_inflyttade / viktad_antal_riket,
         .groups = "drop"
@@ -412,33 +412,33 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       )
 
     poolad_data_spline <- poolad_data %>%
-      group_by(Region, Kön) %>% arrange(Ålder) %>%
+      group_by(region, kon) %>% arrange(alder) %>%
       mutate(
         poolad_inflyttningsrisk_spline = spline_auto(
-          Ålder, poolad_inflyttningsrisk,
+          alder, poolad_inflyttningsrisk,
           bevara_summa = bevara_summa_auto_spline_inflyttning)
       ) %>%
       ungroup()
 
-    alla_regioner <- unique(poolad_data_spline$Region)
-    prognos_ar    <- unique(riket_medelfolkmangd_prognos$År)
+    alla_regioner <- unique(poolad_data_spline$region)
+    prognos_ar    <- unique(riket_medelfolkmangd_prognos$ar)
 
     if (bevara_niva_per_ar_inflyttning) {
       risk_age <- poolad_data %>%
-        select(Region, Kön, Ålder, ospline = poolad_inflyttningsrisk) %>%
+        select(region, kon, alder, ospline = poolad_inflyttningsrisk) %>%
         left_join(
           poolad_data_spline %>%
-            select(Region, Kön, Ålder, spline = poolad_inflyttningsrisk_spline),
-          by = c("Region", "Kön", "Ålder")
+            select(region, kon, alder, spline = poolad_inflyttningsrisk_spline),
+          by = c("region", "kon", "alder")
         )
 
       scalefac <- risk_age %>%
-        tidyr::crossing(År = unique(riket_medelfolkmangd_prognos$År)) %>%
+        tidyr::crossing(ar = unique(riket_medelfolkmangd_prognos$ar)) %>%
         left_join(
-          riket_medelfolkmangd_prognos %>% select(År, Ålder, Kön, n = Värde),
-          by = c("År", "Ålder", "Kön")
+          riket_medelfolkmangd_prognos %>% select(ar, alder, kon, n = varde),
+          by = c("ar", "alder", "kon")
         ) %>%
-        group_by(Region, Kön, År) %>%
+        group_by(region, kon, ar) %>%
         summarise(
           num    = sum(ospline * n, na.rm = TRUE),
           denom  = sum(spline  * n, na.rm = TRUE),
@@ -447,47 +447,47 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
         )
 
       inflyttningsrisker_prognos <- expand_grid(
-        Region = unique(poolad_data_spline$Region),
-        År    = unique(riket_medelfolkmangd_prognos$År)
+        region = unique(poolad_data_spline$region),
+        ar    = unique(riket_medelfolkmangd_prognos$ar)
       ) %>%
         left_join(
           riket_medelfolkmangd_prognos %>%
-            select(År, Ålder, Kön, Riksbefolkning = Värde),
-          by = "År", relationship = "many-to-many"
+            select(ar, alder, kon, Riksbefolkning = varde),
+          by = "ar", relationship = "many-to-many"
         ) %>%
         left_join(
           poolad_data_spline %>%
-            select(Region, Ålder, Kön, spline = poolad_inflyttningsrisk_spline),
-          by = c("Region", "Ålder", "Kön")
+            select(region, alder, kon, spline = poolad_inflyttningsrisk_spline),
+          by = c("region", "alder", "kon")
         ) %>%
-        left_join(scalefac %>% select(Region, Kön, År, faktor),
-                  by = c("Region", "Kön", "År")) %>%
+        left_join(scalefac %>% select(region, kon, ar, faktor),
+                  by = c("region", "kon", "ar")) %>%
         mutate(
-          Värde    = spline * dplyr::coalesce(faktor, 1),
-          Variabel = "Inflyttningsrisker"
+          varde    = spline * dplyr::coalesce(faktor, 1),
+          variabel = "Inflyttningsrisker"
         ) %>%
-        select(Region, Kön, Ålder, År, Variabel, Värde)
+        select(region, kon, alder, ar, variabel, varde)
 
     } else {
       inflyttningsrisker_prognos <- expand_grid(
-        Region = alla_regioner,
-        År    = prognos_ar
+        region = alla_regioner,
+        ar    = prognos_ar
       ) %>%
         left_join(
           riket_medelfolkmangd_prognos %>%
-            select(År, Ålder, Kön, Riksbefolkning = Värde),
-          by = "År", relationship = "many-to-many"
+            select(ar, alder, kon, Riksbefolkning = varde),
+          by = "ar", relationship = "many-to-many"
         ) %>%
         left_join(
           poolad_data_spline %>%
-            select(Region, Ålder, Kön, poolad_inflyttningsrisk_spline),
-          by = c("Region", "Ålder", "Kön")
+            select(region, alder, kon, poolad_inflyttningsrisk_spline),
+          by = c("region", "alder", "kon")
         ) %>%
         mutate(
-          Värde    = poolad_inflyttningsrisk_spline,
-          Variabel = "Inflyttningsrisker"
+          varde    = poolad_inflyttningsrisk_spline,
+          variabel = "Inflyttningsrisker"
         ) %>%
-        select(Region, Kön, Ålder, År, Variabel, Värde)
+        select(region, kon, alder, ar, variabel, varde)
     }
 
     applicera_scenariojustering(inflyttningsrisker_prognos, "inflyttningsrisker")
@@ -506,26 +506,26 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
     medelfolkmangd <- kommun_lista$medelfolkmangd
 
     senaste_ar <- utflyttade %>%
-      mutate(År = as.numeric(as.character(År))) %>%
-      dplyr::pull(År) %>% unique() %>% sort() %>% tail(antal_ar)
+      mutate(ar = as.numeric(as.character(ar))) %>%
+      dplyr::pull(ar) %>% unique() %>% sort() %>% tail(antal_ar)
 
     utflyttningsrisker_raa <- utflyttade %>%
-      mutate(År = as.numeric(as.character(År))) %>%
-      filter(År %in% senaste_ar) %>%
+      mutate(ar = as.numeric(as.character(ar))) %>%
+      filter(ar %in% senaste_ar) %>%
       inner_join(
         medelfolkmangd %>%
-          mutate(År = as.numeric(as.character(År))) %>%
-          filter(År %in% senaste_ar) %>%
-          select(Region, År, Ålder, Kön, antal_befolkning = Värde),
-        by = c("Region", "År", "Ålder", "Kön")
+          mutate(ar = as.numeric(as.character(ar))) %>%
+          filter(ar %in% senaste_ar) %>%
+          select(region, ar, alder, kon, antal_befolkning = varde),
+        by = c("region", "ar", "alder", "kon")
       ) %>%
       mutate(
-        antal_utflyttade = Värde,
+        antal_utflyttade = varde,
         utflyttningsrisk = antal_utflyttade / antal_befolkning,
         utflyttningsrisk = replace_na(utflyttningsrisk, 0),
         utflyttningsrisk = pmin(utflyttningsrisk, 0.5)
       ) %>%
-      select(Region, År, Ålder, Kön,
+      select(region, ar, alder, kon,
              utflyttningsrisk, antal_utflyttade, antal_befolkning)
 
     tidsvikter <- berakna_tidsvikter(antal_ar, params$viktningstyp, alpha_varde)
@@ -534,13 +534,13 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
     poolad_data <- utflyttningsrisker_raa %>%
       filter(!is.na(antal_utflyttade), !is.na(antal_befolkning),
              antal_befolkning > 0) %>%
-      group_by(Region, Kön, Ålder) %>%
+      group_by(region, kon, alder) %>%
       summarise(
         viktad_antal_utflyttade  = sum(antal_utflyttade *
-                                         tidsvikter[as.character(År)],
+                                         tidsvikter[as.character(ar)],
                                        na.rm = TRUE),
         viktad_antal_befolkning  = sum(antal_befolkning *
-                                         tidsvikter[as.character(År)],
+                                         tidsvikter[as.character(ar)],
                                        na.rm = TRUE),
         poolad_utflyttningsrisk  = viktad_antal_utflyttade /
           viktad_antal_befolkning,
@@ -554,22 +554,22 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       )
 
     poolad_data_spline <- poolad_data %>%
-      group_by(Region, Kön) %>% arrange(Ålder) %>%
+      group_by(region, kon) %>% arrange(alder) %>%
       mutate(
-        poolad_utflyttningsrisk_spline = if (dplyr::first(Region) == "Riket")
+        poolad_utflyttningsrisk_spline = if (dplyr::first(region) == "Riket")
           poolad_utflyttningsrisk
         else
-          spline_auto(Ålder, poolad_utflyttningsrisk, bevara_summa = FALSE)
+          spline_auto(alder, poolad_utflyttningsrisk, bevara_summa = FALSE)
       ) %>%
       ungroup()
 
-    prognos_ar <- unique(riket_lista$riket_prognosinvånare_grund$År)
+    prognos_ar <- unique(riket_lista$riket_prognosinvånare_grund$ar)
 
     utflyttningsrisker_prognos <- poolad_data_spline %>%
-      select(Region, Kön, Ålder, Värde = poolad_utflyttningsrisk_spline) %>%
-      crossing(År = prognos_ar) %>%
-      mutate(Variabel = "Utflyttningsrisker") %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, varde = poolad_utflyttningsrisk_spline) %>%
+      crossing(ar = prognos_ar) %>%
+      mutate(variabel = "Utflyttningsrisker") %>%
+      select(region, kon, alder, ar, variabel, varde)
 
     applicera_scenariojustering(utflyttningsrisker_prognos, "utflyttningsrisker")
   }
@@ -584,31 +584,31 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       params$alpha else 0.5
 
     invandrade             <- kommun_lista$invandring
-    riket_invandrade       <- invandrade %>% filter(Region == "Riket")
+    riket_invandrade       <- invandrade %>% filter(region == "Riket")
     riket_invandring_prognos <- riket_lista$invandring_riket %>%
-      mutate(Region = "Riket") %>%
-      select(Region, År, Ålder, Kön, Värde)
+      mutate(region = "Riket") %>%
+      select(region, ar, alder, kon, varde)
 
     senaste_ar <- invandrade %>%
-      dplyr::pull(År) %>% unique() %>% sort() %>% tail(antal_ar)
+      dplyr::pull(ar) %>% unique() %>% sort() %>% tail(antal_ar)
 
     invandringsrisker_raa <- invandrade %>%
-      filter(År %in% senaste_ar) %>%
+      filter(ar %in% senaste_ar) %>%
       inner_join(
         riket_invandrade %>%
-          filter(År %in% senaste_ar) %>%
-          select(År, Ålder, Kön, antal_riket = Värde),
-        by = c("År", "Ålder", "Kön")
+          filter(ar %in% senaste_ar) %>%
+          select(ar, alder, kon, antal_riket = varde),
+        by = c("ar", "alder", "kon")
       ) %>%
       mutate(
-        antal_invandrade = Värde,
+        antal_invandrade = varde,
         invandringsrisk  = antal_invandrade / antal_riket,
         invandringsrisk  = ifelse(
           is.infinite(invandringsrisk) | is.nan(invandringsrisk),
           0, invandringsrisk),
         invandringsrisk  = pmin(invandringsrisk, 1.0)
       ) %>%
-      select(Region, År, Ålder, Kön,
+      select(region, ar, alder, kon,
              invandringsrisk, antal_invandrade, antal_riket)
 
     tidsvikter <- berakna_tidsvikter(antal_ar, params$viktningstyp, alpha_varde)
@@ -616,13 +616,13 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
 
     poolad_data <- invandringsrisker_raa %>%
       filter(!is.na(antal_invandrade), !is.na(antal_riket), antal_riket > 0) %>%
-      group_by(Region, Kön, Ålder) %>%
+      group_by(region, kon, alder) %>%
       summarise(
         viktad_antal_invandrade = sum(antal_invandrade *
-                                        tidsvikter[as.character(År)],
+                                        tidsvikter[as.character(ar)],
                                       na.rm = TRUE),
         viktad_antal_riket      = sum(antal_riket *
-                                        tidsvikter[as.character(År)],
+                                        tidsvikter[as.character(ar)],
                                       na.rm = TRUE),
         poolad_invandringsrisk  = viktad_antal_invandrade / viktad_antal_riket,
         .groups = "drop"
@@ -635,37 +635,37 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       )
 
     poolad_data_spline <- poolad_data %>%
-      group_by(Region, Kön) %>% arrange(Ålder) %>%
+      group_by(region, kon) %>% arrange(alder) %>%
       mutate(
-        poolad_invandringsrisk_spline = if (dplyr::first(Region) == "Riket")
+        poolad_invandringsrisk_spline = if (dplyr::first(region) == "Riket")
           poolad_invandringsrisk
         else
-          spline_auto(Ålder, poolad_invandringsrisk, bevara_summa = FALSE)
+          spline_auto(alder, poolad_invandringsrisk, bevara_summa = FALSE)
       ) %>%
       ungroup()
 
-    alla_regioner <- unique(poolad_data_spline$Region)
-    prognos_ar    <- unique(riket_invandring_prognos$År)
+    alla_regioner <- unique(poolad_data_spline$region)
+    prognos_ar    <- unique(riket_invandring_prognos$ar)
 
     invandringsrisker_prognos <- expand_grid(
-      Region = alla_regioner,
-      År    = prognos_ar
+      region = alla_regioner,
+      ar    = prognos_ar
     ) %>%
       left_join(
         riket_invandring_prognos %>%
-          select(År, Ålder, Kön, invandring_riket = Värde),
-        by = "År", relationship = "many-to-many"
+          select(ar, alder, kon, invandring_riket = varde),
+        by = "ar", relationship = "many-to-many"
       ) %>%
       left_join(
         poolad_data_spline %>%
-          select(Region, Ålder, Kön, poolad_invandringsrisk_spline),
-        by = c("Region", "Ålder", "Kön")
+          select(region, alder, kon, poolad_invandringsrisk_spline),
+        by = c("region", "alder", "kon")
       ) %>%
       mutate(
-        Värde    = poolad_invandringsrisk_spline,
-        Variabel = "Invandringsrisker"
+        varde    = poolad_invandringsrisk_spline,
+        variabel = "Invandringsrisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
     applicera_scenariojustering(invandringsrisker_prognos, "invandringsrisker")
   }
@@ -683,26 +683,26 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
     medelfolkmangd <- kommun_lista$medelfolkmangd
 
     senaste_ar <- utvandrade %>%
-      mutate(År = as.numeric(as.character(År))) %>%
-      dplyr::pull(År) %>% unique() %>% sort() %>% tail(antal_ar)
+      mutate(ar = as.numeric(as.character(ar))) %>%
+      dplyr::pull(ar) %>% unique() %>% sort() %>% tail(antal_ar)
 
     utvandringsrisker_raa <- utvandrade %>%
-      mutate(År = as.numeric(as.character(År))) %>%
-      filter(År %in% senaste_ar) %>%
+      mutate(ar = as.numeric(as.character(ar))) %>%
+      filter(ar %in% senaste_ar) %>%
       inner_join(
         medelfolkmangd %>%
-          mutate(År = as.numeric(as.character(År))) %>%
-          filter(År %in% senaste_ar) %>%
-          select(Region, År, Ålder, Kön, antal_befolkning = Värde),
-        by = c("Region", "År", "Ålder", "Kön")
+          mutate(ar = as.numeric(as.character(ar))) %>%
+          filter(ar %in% senaste_ar) %>%
+          select(region, ar, alder, kon, antal_befolkning = varde),
+        by = c("region", "ar", "alder", "kon")
       ) %>%
       mutate(
-        antal_utvandrade = Värde,
+        antal_utvandrade = varde,
         utvandringsrisk  = antal_utvandrade / antal_befolkning,
         utvandringsrisk  = replace_na(utvandringsrisk, 0),
         utvandringsrisk  = pmin(utvandringsrisk, 0.5)
       ) %>%
-      select(Region, År, Ålder, Kön,
+      select(region, ar, alder, kon,
              utvandringsrisk, antal_utvandrade, antal_befolkning)
 
     tidsvikter <- berakna_tidsvikter(antal_ar, params$viktningstyp, alpha_varde)
@@ -711,13 +711,13 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
     poolad_data <- utvandringsrisker_raa %>%
       filter(!is.na(antal_utvandrade), !is.na(antal_befolkning),
              antal_befolkning > 0) %>%
-      group_by(Region, Kön, Ålder) %>%
+      group_by(region, kon, alder) %>%
       summarise(
         viktad_antal_utvandrade = sum(antal_utvandrade *
-                                        tidsvikter[as.character(År)],
+                                        tidsvikter[as.character(ar)],
                                       na.rm = TRUE),
         viktad_antal_befolkning = sum(antal_befolkning *
-                                        tidsvikter[as.character(År)],
+                                        tidsvikter[as.character(ar)],
                                       na.rm = TRUE),
         poolad_utvandringsrisk  = viktad_antal_utvandrade /
           viktad_antal_befolkning,
@@ -731,23 +731,23 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       )
 
     poolad_data_spline <- poolad_data %>%
-      group_by(Region, Kön) %>% arrange(Ålder) %>%
+      group_by(region, kon) %>% arrange(alder) %>%
       mutate(
-        poolad_utvandringsrisk_spline = if (dplyr::first(Region) == "Riket")
+        poolad_utvandringsrisk_spline = if (dplyr::first(region) == "Riket")
           poolad_utvandringsrisk
         else
-          spline_auto(Ålder, poolad_utvandringsrisk,
+          spline_auto(alder, poolad_utvandringsrisk,
                       bevara_summa = bevara_summa_auto_spline_utvandring)
       ) %>%
       ungroup()
 
-    prognos_ar <- unique(riket_lista$riket_prognosinvånare_grund$År)
+    prognos_ar <- unique(riket_lista$riket_prognosinvånare_grund$ar)
 
     utvandringsrisker_prognos <- poolad_data_spline %>%
-      select(Region, Kön, Ålder, Värde = poolad_utvandringsrisk_spline) %>%
-      crossing(År = prognos_ar) %>%
-      mutate(Variabel = "Utvandringsrisker") %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, varde = poolad_utvandringsrisk_spline) %>%
+      crossing(ar = prognos_ar) %>%
+      mutate(variabel = "Utvandringsrisker") %>%
+      select(region, kon, alder, ar, variabel, varde)
 
     applicera_scenariojustering(utvandringsrisker_prognos, "utvandringsrisker")
   }
@@ -757,22 +757,22 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
   # ===========================================================
   message("\n==== STARTAR RISKBERÄKNINGAR (in-memory) ====\n")
 
-  fodelserisker   <- berakna_fodelserisker()   %>% filter(Region != "Riket")
+  fodelserisker   <- berakna_fodelserisker()   %>% filter(region != "Riket")
   message("✓ Födelserisker klara")
 
-  dodsrisker      <- berakna_dodsrisker()      %>% filter(Region != "Riket")
+  dodsrisker      <- berakna_dodsrisker()      %>% filter(region != "Riket")
   message("✓ Dödsrisker klara")
 
   inflyttningsrisker <- berakna_inflyttningsrisker()
   message("✓ Inflyttningsrisker klara")
 
-  utflyttningsrisker <- berakna_utflyttningsrisker() %>% filter(Region != "Riket")
+  utflyttningsrisker <- berakna_utflyttningsrisker() %>% filter(region != "Riket")
   message("✓ Utflyttningsrisker klara")
 
-  invandringsrisker  <- berakna_invandringsrisker()  %>% filter(Region != "Riket")
+  invandringsrisker  <- berakna_invandringsrisker()  %>% filter(region != "Riket")
   message("✓ Invandringsrisker klara")
 
-  utvandringsrisker  <- berakna_utvandringsrisker()  %>% filter(Region != "Riket")
+  utvandringsrisker  <- berakna_utvandringsrisker()  %>% filter(region != "Riket")
   message("✓ Utvandringsrisker klara")
 
   message("\n==== RISKBERÄKNINGAR KLARA ====\n")

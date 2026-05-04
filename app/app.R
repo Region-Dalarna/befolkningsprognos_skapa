@@ -27,6 +27,25 @@ source("R/resultat/server_resultat.R")
 
 source("R/domain/geografi_data.R")
 
+source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_shinyappar.R", encoding = "utf-8", echo = FALSE)
+
+geo_db <- tbl(
+  shiny_uppkoppling_las("oppna_data"),
+  dbplyr::in_schema("scb", "totfolkmangd")
+) %>%
+  distinct(regionkod, region) %>%
+  filter(regionkod != "00") %>%
+  collect()
+
+geografier_i_data <- geo_db %>%
+  dplyr::pull(region) %>%
+  sort()
+
+lan_i_data <- geo_db %>%
+  filter(nchar(regionkod) == 2) %>%
+  dplyr::pull(region) %>%
+  sort()
+
 ui <- page_navbar(
   title = "Befolkningsprognos",
 
@@ -37,7 +56,7 @@ ui <- page_navbar(
 
   nav_panel(
     "1. Konfiguration",
-    ui_config(app_kontext)
+    ui_config(app_kontext, lan_i_data, geografier_i_data)
   ),
 
   nav_panel(
