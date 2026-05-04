@@ -75,7 +75,7 @@ kor_prognos <- function(konfiguration,
     ))
   }
 
-  # Normalisera kolumnnamn (Alder→Ålder, Kon→Kön, etc.) och listnycklar
+  # Normalisera kolumnnamn till snake_case (Region→region, Ålder→alder, etc.) och listnycklar
   underlag <- normalisera_underlag(underlag)
 
   # ------------------------------------------------------------

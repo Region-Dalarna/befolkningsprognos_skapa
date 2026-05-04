@@ -7,34 +7,35 @@
 #   riket_lista  = <samma struktur som i Analytikernatverket/befolkningsprognoser>
 # )
 #
-# Kolumnnamnen behöver INTE vara normaliserade – normalisera_underlag() hanterar
-# automatiskt följande varianter (DB levererar alltid gemener):
-#   region   →  Region
-#   alder    →  Ålder
-#   kon      →  Kön
-#   ar       →  År
-#   varde    →  Värde
-#   variabel →  Variabel
-#   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund
+# Kolumnnamnen ska vara i snake_case. normalisera_underlag() hanterar
+# automatiskt konvertering av eventuella PascalCase-varianter (DB levererar
+# alltid gemener/snake_case):
+#   Region   →  region
+#   Ålder    →  alder  (Alder → alder)
+#   Kön      →  kon    (Kon → kon)
+#   År       →  ar     (Ar → ar)
+#   Värde    →  varde  (Varde → varde)
+#   Variabel →  variabel
+#   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund  (listnyckel)
 #
-# Struktur för kommun_lista (DB-kolumnnamn inom parentes):
-#   $totfolkmangd          – tibble: Region (region), Ålder (alder), Kön (kon), År (ar), Värde (varde), Variabel (variabel)
-#   $medelfolkmangd        – tibble: Region (region), Ålder (alder), Kön (kon), År (ar), Värde (varde)
-#   $medelfolkmangd_modrar – tibble: Region (region), År (ar), Ålder (alder), Värde (varde)
-#   $fodda                 – tibble: Region (region), År (ar), Ålder (alder), Värde (varde)
-#   $doda                  – tibble: Region (region), Ålder (alder), Kön (kon), År (ar), Värde (varde)
-#   $inrikes_inflyttade    – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
-#   $inrikes_utflyttade    – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
-#   $invandring            – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
-#   $utvandring            – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Värde (varde)
-#   $inflyttningar_lansgrans_raw – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Total, Ovriga_lan
-#   $utflyttningar_lansgrans_raw – tibble: Region (region), År (ar), Ålder (alder), Kön (kon), Total, Ovriga_lan
+# Struktur för kommun_lista (snake_case kolumnnamn):
+#   $totfolkmangd          – tibble: region, alder, kon, ar, varde, variabel
+#   $medelfolkmangd        – tibble: region, alder, kon, ar, varde
+#   $medelfolkmangd_modrar – tibble: region, ar, alder, varde
+#   $fodda                 – tibble: region, ar, alder, varde
+#   $doda                  – tibble: region, alder, kon, ar, varde
+#   $inrikes_inflyttade    – tibble: region, ar, alder, kon, varde
+#   $inrikes_utflyttade    – tibble: region, ar, alder, kon, varde
+#   $invandring            – tibble: region, ar, alder, kon, varde
+#   $utvandring            – tibble: region, ar, alder, kon, varde
+#   $inflyttningar_lansgrans_raw – tibble: region, ar, alder, kon, Total, Ovriga_lan
+#   $utflyttningar_lansgrans_raw – tibble: region, ar, alder, kon, Total, Ovriga_lan
 #
-# Struktur för riket_lista (DB-kolumnnamn inom parentes):
-#   $riket_prognosinvånare_grund (riket_prognosinvanare_grund) – tibble: År (ar), Ålder (alder), Kön (kon), Värde (varde)
-#   $invandring_riket            – tibble: År (ar), Ålder (alder), Kön (kon), Värde (varde)
-#   $fodelsetal                  – tibble: År (ar), Ålder (alder), Värde (varde)  (fruktsamhetskvoter)
-#   $dodstal                     – tibble: År (ar), Ålder (alder), Kön (kon), Värde (varde), Variabel (variabel)
+# Struktur för riket_lista (snake_case kolumnnamn):
+#   $riket_prognosinvånare_grund – tibble: ar, alder, kon, varde
+#   $invandring_riket            – tibble: ar, alder, kon, varde
+#   $fodelsetal                  – tibble: ar, alder, varde  (fruktsamhetskvoter)
+#   $dodstal                     – tibble: ar, alder, kon, varde, variabel
 
 #' Stub: används som fallback om DB-koppling saknas.
 #'
@@ -116,32 +117,33 @@ hamta_underlag_db <- function(konfiguration) {
   )
 }
 
-#' Normalisera kolumnnamn och listnycklar i underlagsobjektet.
+#' Normalisera kolumnnamn och listnycklar i underlagsobjektet till snake_case.
 #'
-#' Hanterar skillnader mellan DB-kolumnnamn (gemener, utan svenska tecken)
-#' och de namn som domänkoden förväntar sig (versaler, med svenska tecken).
+#' DB levererar alltid snake_case (gemener utan svenska tecken), men om data
+#' av någon anledning levereras med PascalCase/svenska tecken normaliseras de
+#' hit till snake_case som domänkoden förväntar sig.
 #'
-#' Mappning som utförs automatiskt:
-#'   region   →  Region
-#'   alder    →  Ålder
-#'   kon      →  Kön
-#'   ar       →  År
-#'   varde    →  Värde
-#'   variabel →  Variabel
-#'   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund
+#' Mappning som utförs automatiskt (PascalCase → snake_case):
+#'   Region   →  region
+#'   Ålder    →  alder  (Alder → alder)
+#'   Kön      →  kon    (Kon → kon)
+#'   År       →  ar     (Ar → ar)
+#'   Värde    →  varde  (Varde → varde)
+#'   Variabel →  variabel
+#'   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund  (listnyckel)
 #'
 #' @param underlag list med $kommun_lista och $riket_lista
 #' @return Samma struktur men med normaliserade kolumnnamn och listnycklar.
 normalisera_underlag <- function(underlag) {
 
-  # Mappning: lista av möjliga DB-namn → önskat kodnamn
+  # Mappning: lista av möjliga PascalCase-namn → önskat snake_case-namn
   kolumn_mapping <- list(
-    "Region"   = c("region"),
-    "Ålder"    = c("alder", "Alder"),
-    "Kön"      = c("kon",   "Kon"),
-    "År"       = c("ar",    "Ar"),
-    "Värde"    = c("varde", "Varde"),
-    "Variabel" = c("variabel")
+    "region"   = c("Region"),
+    "alder"    = c("Ålder", "Alder"),
+    "kon"      = c("Kön", "Kon"),
+    "ar"       = c("År", "Ar"),
+    "varde"    = c("Värde", "Varde"),
+    "variabel" = c("Variabel")
   )
 
   normalisera_kolumner <- function(tbl) {

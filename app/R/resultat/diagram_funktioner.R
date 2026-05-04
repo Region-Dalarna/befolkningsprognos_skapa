@@ -79,119 +79,119 @@ berakna_historiska_risker_for_ar <- function(kommun_lista, risk_typ,
 
   if (risk_typ == "Födelserisker") {
     historisk_risk <- kommun_lista$fodda %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == geografi_namn, År %in% valda_ar,
-             Ålder >= 15, Ålder <= 49) %>%
+      mutate(ar = as.character(ar)) %>%
+      filter(region == geografi_namn, ar %in% valda_ar,
+             alder >= 15, alder <= 49) %>%
       inner_join(
         kommun_lista$medelfolkmangd_modrar %>%
-          mutate(År = as.character(År)) %>%
-          filter(Region == geografi_namn, År %in% valda_ar),
-        by = c("Region", "År", "Ålder")
+          mutate(ar = as.character(ar)) %>%
+          filter(region == geografi_namn, ar %in% valda_ar),
+        by = c("region", "ar", "alder")
       ) %>%
       mutate(
-        Värde    = ifelse(Värde.y > 0, Värde.x / Värde.y, 0),
-        Värde    = ifelse(is.infinite(Värde) | is.nan(Värde), 0, Värde),
-        Värde    = pmin(Värde, 0.5),
-        Kön      = "kvinnor",
-        Variabel = "Födelserisker"
+        varde    = ifelse(varde.y > 0, varde.x / varde.y, 0),
+        varde    = ifelse(is.infinite(varde) | is.nan(varde), 0, varde),
+        varde    = pmin(varde, 0.5),
+        kon      = "kvinnor",
+        variabel = "Födelserisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
   } else if (risk_typ == "Dödsrisker") {
     historisk_risk <- kommun_lista$doda %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == geografi_namn, År %in% valda_ar) %>%
+      mutate(ar = as.character(ar)) %>%
+      filter(region == geografi_namn, ar %in% valda_ar) %>%
       inner_join(
         kommun_lista$totfolkmangd %>%
-          mutate(År = as.character(År)) %>%
-          filter(Region == geografi_namn, År %in% valda_ar),
-        by = c("Region", "År", "Ålder", "Kön")
+          mutate(ar = as.character(ar)) %>%
+          filter(region == geografi_namn, ar %in% valda_ar),
+        by = c("region", "ar", "alder", "kon")
       ) %>%
       mutate(
-        Värde    = ifelse(Värde.y > 0, Värde.x / Värde.y, 0),
-        Värde    = ifelse(is.infinite(Värde) | is.nan(Värde), 0, Värde),
-        Värde    = pmin(Värde, 0.5),
-        Variabel = "Dödsrisker"
+        varde    = ifelse(varde.y > 0, varde.x / varde.y, 0),
+        varde    = ifelse(is.infinite(varde) | is.nan(varde), 0, varde),
+        varde    = pmin(varde, 0.5),
+        variabel = "Dödsrisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
   } else if (risk_typ == "Inflyttningsrisker") {
     riket_bef <- kommun_lista$medelfolkmangd %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == "Riket", År %in% valda_ar)
+      mutate(ar = as.character(ar)) %>%
+      filter(region == "Riket", ar %in% valda_ar)
 
     historisk_risk <- kommun_lista$inrikes_inflyttade %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == geografi_namn, År %in% valda_ar) %>%
+      mutate(ar = as.character(ar)) %>%
+      filter(region == geografi_namn, ar %in% valda_ar) %>%
       inner_join(
-        riket_bef %>% select(År, Ålder, Kön, antal_riket = Värde),
-        by = c("År", "Ålder", "Kön")
+        riket_bef %>% select(ar, alder, kon, antal_riket = varde),
+        by = c("ar", "alder", "kon")
       ) %>%
       mutate(
-        Värde    = ifelse(antal_riket > 0, Värde / antal_riket, 0),
-        Värde    = ifelse(is.infinite(Värde) | is.nan(Värde), 0, Värde),
-        Värde    = pmin(Värde, 0.5),
-        Variabel = "Inflyttningsrisker"
+        varde    = ifelse(antal_riket > 0, varde / antal_riket, 0),
+        varde    = ifelse(is.infinite(varde) | is.nan(varde), 0, varde),
+        varde    = pmin(varde, 0.5),
+        variabel = "Inflyttningsrisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
   } else if (risk_typ == "Utflyttningsrisker") {
     historisk_risk <- kommun_lista$inrikes_utflyttade %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == geografi_namn, År %in% valda_ar) %>%
+      mutate(ar = as.character(ar)) %>%
+      filter(region == geografi_namn, ar %in% valda_ar) %>%
       inner_join(
         kommun_lista$medelfolkmangd %>%
-          mutate(År = as.character(År)) %>%
-          filter(Region == geografi_namn, År %in% valda_ar) %>%
-          select(Region, År, Ålder, Kön, antal_bef = Värde),
-        by = c("Region", "År", "Ålder", "Kön")
+          mutate(ar = as.character(ar)) %>%
+          filter(region == geografi_namn, ar %in% valda_ar) %>%
+          select(region, ar, alder, kon, antal_bef = varde),
+        by = c("region", "ar", "alder", "kon")
       ) %>%
       mutate(
-        Värde    = ifelse(antal_bef > 0, Värde / antal_bef, 0),
-        Värde    = replace_na(Värde, 0),
-        Värde    = pmin(Värde, 0.5),
-        Variabel = "Utflyttningsrisker"
+        varde    = ifelse(antal_bef > 0, varde / antal_bef, 0),
+        varde    = replace_na(varde, 0),
+        varde    = pmin(varde, 0.5),
+        variabel = "Utflyttningsrisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
   } else if (risk_typ == "Invandringsrisker") {
     riket_inv <- kommun_lista$invandring %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == "Riket", År %in% valda_ar)
+      mutate(ar = as.character(ar)) %>%
+      filter(region == "Riket", ar %in% valda_ar)
 
     historisk_risk <- kommun_lista$invandring %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == geografi_namn, År %in% valda_ar) %>%
+      mutate(ar = as.character(ar)) %>%
+      filter(region == geografi_namn, ar %in% valda_ar) %>%
       inner_join(
-        riket_inv %>% select(År, Ålder, Kön, antal_riket = Värde),
-        by = c("År", "Ålder", "Kön")
+        riket_inv %>% select(ar, alder, kon, antal_riket = varde),
+        by = c("ar", "alder", "kon")
       ) %>%
       mutate(
-        Värde    = ifelse(antal_riket > 0, Värde / antal_riket, 0),
-        Värde    = ifelse(is.infinite(Värde) | is.nan(Värde), 0, Värde),
-        Värde    = pmin(Värde, 1.0),
-        Variabel = "Invandringsrisker"
+        varde    = ifelse(antal_riket > 0, varde / antal_riket, 0),
+        varde    = ifelse(is.infinite(varde) | is.nan(varde), 0, varde),
+        varde    = pmin(varde, 1.0),
+        variabel = "Invandringsrisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
   } else if (risk_typ == "Utvandringsrisker") {
     historisk_risk <- kommun_lista$utvandring %>%
-      mutate(År = as.character(År)) %>%
-      filter(Region == geografi_namn, År %in% valda_ar) %>%
+      mutate(ar = as.character(ar)) %>%
+      filter(region == geografi_namn, ar %in% valda_ar) %>%
       inner_join(
         kommun_lista$medelfolkmangd %>%
-          mutate(År = as.character(År)) %>%
-          filter(Region == geografi_namn, År %in% valda_ar) %>%
-          select(Region, År, Ålder, Kön, antal_bef = Värde),
-        by = c("Region", "År", "Ålder", "Kön")
+          mutate(ar = as.character(ar)) %>%
+          filter(region == geografi_namn, ar %in% valda_ar) %>%
+          select(region, ar, alder, kon, antal_bef = varde),
+        by = c("region", "ar", "alder", "kon")
       ) %>%
       mutate(
-        Värde    = ifelse(antal_bef > 0, Värde / antal_bef, 0),
-        Värde    = replace_na(Värde, 0),
-        Värde    = pmin(Värde, 0.5),
-        Variabel = "Utvandringsrisker"
+        varde    = ifelse(antal_bef > 0, varde / antal_bef, 0),
+        varde    = replace_na(varde, 0),
+        varde    = pmin(varde, 0.5),
+        variabel = "Utvandringsrisker"
       ) %>%
-      select(Region, Kön, Ålder, År, Variabel, Värde)
+      select(region, kon, alder, ar, variabel, varde)
 
   } else {
     return(tibble())
@@ -199,7 +199,7 @@ berakna_historiska_risker_for_ar <- function(kommun_lista, risk_typ,
 
   if (nrow(historisk_risk) > 0) {
     historisk_risk <- historisk_risk %>%
-      filter(!is.na(Värde), !is.na(Ålder), !is.na(År))
+      filter(!is.na(varde), !is.na(alder), !is.na(ar))
   }
   historisk_risk
 }
@@ -210,7 +210,7 @@ berakna_historiska_risker_for_ar <- function(kommun_lista, risk_typ,
 
 #' Kombinera prognosrisktal med beräknade historiska risktal för valda år.
 #'
-#' @param risk_data     Tibble – t.ex. risktal$fodelserisker (Region, Kön, Ålder, År, Variabel, Värde)
+#' @param risk_data     Tibble – t.ex. risktal$fodelserisker (region, kon, alder, ar, variabel, varde)
 #' @param geografi_namn Character – regionnamn
 #' @param valda_ar      Character-vektor med valda år (historiska och/eller prognosår)
 #' @param kommun_lista  list – historiska underlagstabeller (krävs för historiska år)
@@ -218,19 +218,19 @@ berakna_historiska_risker_for_ar <- function(kommun_lista, risk_typ,
 skapa_risk_data_multi <- function(risk_data, geografi_namn, valda_ar,
                                   kommun_lista = NULL, risk_typ = NULL) {
   if (is.null(risk_data) || nrow(risk_data) == 0) return(NULL)
-  if (!geografi_namn %in% risk_data$Region) return(NULL)
+  if (!geografi_namn %in% risk_data$region) return(NULL)
 
   valda_ar  <- as.character(valda_ar)
-  risk_data <- risk_data %>% mutate(År = as.character(År))
+  risk_data <- risk_data %>% mutate(ar = as.character(ar))
 
-  prognos_ar_i_data   <- unique(risk_data$År)
+  prognos_ar_i_data   <- unique(risk_data$ar)
   valda_prognos_ar    <- valda_ar[valda_ar %in% prognos_ar_i_data]
   valda_historiska_ar <- valda_ar[!valda_ar %in% prognos_ar_i_data]
 
   prognos_data <- risk_data %>%
-    filter(Region == geografi_namn, År %in% valda_prognos_ar) %>%
+    filter(region == geografi_namn, ar %in% valda_prognos_ar) %>%
     mutate(Typ = "Prognos") %>%
-    arrange(År, Ålder)
+    arrange(ar, alder)
 
   historisk_data <- tibble()
   if (length(valda_historiska_ar) > 0 &&
@@ -239,8 +239,8 @@ skapa_risk_data_multi <- function(risk_data, geografi_namn, valda_ar,
     historisk_data <- tryCatch({
       berakna_historiska_risker_for_ar(
         kommun_lista, risk_typ, geografi_namn, valda_historiska_ar) %>%
-        mutate(Typ = "Historisk", År = as.character(År)) %>%
-        arrange(År, Ålder)
+        mutate(Typ = "Historisk", ar = as.character(ar)) %>%
+        arrange(ar, alder)
     }, error = function(e) {
       warning(paste("Kunde inte beräkna historiska risktal:", e$message))
       tibble()
@@ -248,9 +248,9 @@ skapa_risk_data_multi <- function(risk_data, geografi_namn, valda_ar,
   }
 
   bind_rows(historisk_data, prognos_data) %>%
-    mutate(År = as.character(År)) %>%
-    filter(!is.na(Värde), !is.na(Ålder), !is.na(År)) %>%
-    arrange(År, Ålder)
+    mutate(ar = as.character(ar)) %>%
+    filter(!is.na(varde), !is.na(alder), !is.na(ar)) %>%
+    arrange(ar, alder)
 }
 
 #' Skapa riskplot (ggplot) med historiska och prognosrisktal per ålder och år.
@@ -269,48 +269,48 @@ skapa_risk_plot_multi <- function(data, titel, y_label = "Risk",
 
   if (is.null(data) || nrow(data) == 0) return(tom_plot())
 
-  data <- data %>% mutate(År = as.character(År))
+  data <- data %>% mutate(ar = as.character(ar))
 
   # Könsfiltrering
-  er_fodelserisk <- any(grepl("Födelserisker", data$Variabel, ignore.case = TRUE))
+  er_fodelserisk <- any(grepl("Födelserisker", data$variabel, ignore.case = TRUE))
   if (!er_fodelserisk) {
-    if (valt_kon == "Båda" && "Kön" %in% names(data)) {
+    if (valt_kon == "Båda" && "kon" %in% names(data)) {
       return(tom_plot("Välj ett specifikt kön för att se data (Kvinnor eller Män)"))
     }
-    if (valt_kon != "Båda" && "Kön" %in% names(data)) {
-      data <- data %>% filter(Kön == valt_kon)
+    if (valt_kon != "Båda" && "kon" %in% names(data)) {
+      data <- data %>% filter(kon == valt_kon)
     }
   }
 
-  data <- data %>% filter(!is.na(Värde), !is.na(Ålder), !is.na(År))
+  data <- data %>% filter(!is.na(varde), !is.na(alder), !is.na(ar))
   if (nrow(data) == 0) return(tom_plot())
 
   historisk_data <- data %>% filter(Typ == "Historisk")
   prognos_data   <- data %>% filter(Typ == "Prognos")
 
-  n_hist <- length(unique(historisk_data$År))
-  n_prog <- length(unique(prognos_data$År))
+  n_hist <- length(unique(historisk_data$ar))
+  n_prog <- length(unique(prognos_data$ar))
 
   hist_colors <- if (n_hist > 0)
     colorRampPalette(c("#B0B0B0", "#606060"))(n_hist) else character(0)
   prog_colors <- if (n_prog > 0)
     colorRampPalette(c("#4A90E2", "#1E5BA8"))(n_prog) else character(0)
 
-  all_years  <- c(if (n_hist > 0) sort(unique(historisk_data$År)) else character(0),
-                  if (n_prog > 0) sort(unique(prognos_data$År)) else character(0))
+  all_years  <- c(if (n_hist > 0) sort(unique(historisk_data$ar)) else character(0),
+                  if (n_prog > 0) sort(unique(prognos_data$ar)) else character(0))
   all_colors <- c(hist_colors, prog_colors)
   names(all_colors) <- all_years
 
-  p <- ggplot(data = data, aes(x = Ålder, y = Värde))
+  p <- ggplot(data = data, aes(x = alder, y = varde))
 
   if (nrow(historisk_data) > 0) {
     p <- p + geom_line(data = historisk_data,
-                       aes(group = År, color = År),
+                       aes(group = ar, color = ar),
                        linewidth = 0.8, alpha = 0.5)
   }
   if (nrow(prognos_data) > 0) {
     p <- p + geom_line(data = prognos_data,
-                       aes(group = År, color = År),
+                       aes(group = ar, color = ar),
                        linewidth = 1.8, alpha = 0.7)
   }
 
@@ -368,50 +368,50 @@ skapa_komponent_data <- function(prognos, komponent_typ,
   if (is.null(prognos)) return(NULL)
 
   geografi_namn  <- prognos$geografi
-  alla_prognos_ar <- sort(unique(prognos$totalbefolkning$År))
+  alla_prognos_ar <- sort(unique(prognos$totalbefolkning$ar))
 
   # --- Prognosdata ---
   prognos_data <- tibble()
   for (ar in alla_prognos_ar) {
     ar_komp <- prognos$komponenter[[ar]]
 
-    varde <- switch(
+    varde_val <- switch(
       komponent_typ,
-      "Födda"                    = sum(ar_komp$fodda$Värde, na.rm = TRUE),
-      "Döda"                     = sum(ar_komp$doda$Värde, na.rm = TRUE),
+      "Födda"                    = sum(ar_komp$fodda$varde, na.rm = TRUE),
+      "Döda"                     = sum(ar_komp$doda$varde, na.rm = TRUE),
       "Födelsenetto"             = {
-        sum(ar_komp$fodda$Värde, na.rm = TRUE) -
-          sum(ar_komp$doda$Värde, na.rm = TRUE)
+        sum(ar_komp$fodda$varde, na.rm = TRUE) -
+          sum(ar_komp$doda$varde, na.rm = TRUE)
       },
-      "Inrikes inflyttade"       = sum(ar_komp$inrikes_inflyttning$Värde, na.rm = TRUE),
-      "Inrikes utflyttade"       = sum(ar_komp$inrikes_utflyttning$Värde, na.rm = TRUE),
+      "Inrikes inflyttade"       = sum(ar_komp$inrikes_inflyttning$varde, na.rm = TRUE),
+      "Inrikes utflyttade"       = sum(ar_komp$inrikes_utflyttning$varde, na.rm = TRUE),
       "Inrikes flyttnetto"       = {
-        sum(ar_komp$inrikes_inflyttning$Värde, na.rm = TRUE) -
-          sum(ar_komp$inrikes_utflyttning$Värde, na.rm = TRUE)
+        sum(ar_komp$inrikes_inflyttning$varde, na.rm = TRUE) -
+          sum(ar_komp$inrikes_utflyttning$varde, na.rm = TRUE)
       },
-      "Invandrade"               = sum(ar_komp$invandring$Värde, na.rm = TRUE),
-      "Utvandrade"               = sum(ar_komp$utvandring$Värde, na.rm = TRUE),
+      "Invandrade"               = sum(ar_komp$invandring$varde, na.rm = TRUE),
+      "Utvandrade"               = sum(ar_komp$utvandring$varde, na.rm = TRUE),
       "Utrikes flyttnetto"       = {
-        sum(ar_komp$invandring$Värde, na.rm = TRUE) -
-          sum(ar_komp$utvandring$Värde, na.rm = TRUE)
+        sum(ar_komp$invandring$varde, na.rm = TRUE) -
+          sum(ar_komp$utvandring$varde, na.rm = TRUE)
       },
       "Total befolkning"         = {
-        sum(prognos$totalbefolkning$Värde[
-          prognos$totalbefolkning$År == ar], na.rm = TRUE)
+        sum(prognos$totalbefolkning$varde[
+          prognos$totalbefolkning$ar == ar], na.rm = TRUE)
       },
       "Total befolkningsförändring" = {
         foregaende_ar <- as.character(as.numeric(ar) - 1)
-        aktuell_bef   <- sum(prognos$totalbefolkning$Värde[
-          prognos$totalbefolkning$År == ar], na.rm = TRUE)
+        aktuell_bef   <- sum(prognos$totalbefolkning$varde[
+          prognos$totalbefolkning$ar == ar], na.rm = TRUE)
         if (foregaende_ar %in% alla_prognos_ar) {
-          fore_bef <- sum(prognos$totalbefolkning$Värde[
-            prognos$totalbefolkning$År == foregaende_ar], na.rm = TRUE)
+          fore_bef <- sum(prognos$totalbefolkning$varde[
+            prognos$totalbefolkning$ar == foregaende_ar], na.rm = TRUE)
           aktuell_bef - fore_bef
         } else if (!is.null(kommun_lista) && "totfolkmangd" %in% names(kommun_lista)) {
           hist_bef <- kommun_lista$totfolkmangd %>%
-            filter(Region == geografi_namn,
-                   as.character(År) == foregaende_ar) %>%
-            summarise(n = sum(Värde, na.rm = TRUE)) %>%
+            filter(region == geografi_namn,
+                   as.character(ar) == foregaende_ar) %>%
+            summarise(n = sum(varde, na.rm = TRUE)) %>%
             pull(n)
           if (length(hist_bef) > 0 && !is.na(hist_bef)) aktuell_bef - hist_bef
           else NA_real_
@@ -421,8 +421,8 @@ skapa_komponent_data <- function(prognos, komponent_typ,
     )
 
     prognos_data <- bind_rows(prognos_data,
-                              tibble(År = as.numeric(ar),
-                                     Värde = varde,
+                              tibble(ar = as.numeric(ar),
+                                     varde = varde_val,
                                      Komponent = komponent_typ,
                                      Dataserie = "Prognos"))
   }
@@ -433,82 +433,82 @@ skapa_komponent_data <- function(prognos, komponent_typ,
     historisk_data <- switch(
       komponent_typ,
       "Födda" = if ("fodda" %in% names(kommun_lista))
-        kommun_lista$fodda %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        kommun_lista$fodda %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk"),
 
       "Döda" = if ("doda" %in% names(kommun_lista))
-        kommun_lista$doda %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        kommun_lista$doda %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk"),
 
       "Födelsenetto" = if ("fodda" %in% names(kommun_lista) &&
                             "doda" %in% names(kommun_lista)) {
-        fodda_h <- kommun_lista$fodda %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Fodda = sum(Värde, na.rm = TRUE), .groups = "drop")
-        doda_h  <- kommun_lista$doda %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Doda = sum(Värde, na.rm = TRUE), .groups = "drop")
-        fodda_h %>% left_join(doda_h, by = "År") %>%
-          mutate(Värde = Fodda - Doda, Komponent = komponent_typ,
+        fodda_h <- kommun_lista$fodda %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Fodda = sum(varde, na.rm = TRUE), .groups = "drop")
+        doda_h  <- kommun_lista$doda %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Doda = sum(varde, na.rm = TRUE), .groups = "drop")
+        fodda_h %>% left_join(doda_h, by = "ar") %>%
+          mutate(varde = Fodda - Doda, Komponent = komponent_typ,
                  Dataserie = "Historisk") %>%
-          select(År, Värde, Komponent, Dataserie)
+          select(ar, varde, Komponent, Dataserie)
       },
 
       "Inrikes inflyttade" = if ("inrikes_inflyttade" %in% names(kommun_lista))
-        kommun_lista$inrikes_inflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        kommun_lista$inrikes_inflyttade %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk"),
 
       "Inrikes utflyttade" = if ("inrikes_utflyttade" %in% names(kommun_lista))
-        kommun_lista$inrikes_utflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        kommun_lista$inrikes_utflyttade %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk"),
 
       "Inrikes flyttnetto" = if ("inrikes_inflyttade" %in% names(kommun_lista) &&
                                   "inrikes_utflyttade" %in% names(kommun_lista)) {
-        inf_h <- kommun_lista$inrikes_inflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Infl = sum(Värde, na.rm = TRUE), .groups = "drop")
-        utf_h <- kommun_lista$inrikes_utflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Utf = sum(Värde, na.rm = TRUE), .groups = "drop")
-        inf_h %>% left_join(utf_h, by = "År") %>%
-          mutate(Värde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          select(År, Värde, Komponent, Dataserie)
+        inf_h <- kommun_lista$inrikes_inflyttade %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Infl = sum(varde, na.rm = TRUE), .groups = "drop")
+        utf_h <- kommun_lista$inrikes_utflyttade %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Utf = sum(varde, na.rm = TRUE), .groups = "drop")
+        inf_h %>% left_join(utf_h, by = "ar") %>%
+          mutate(varde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          select(ar, varde, Komponent, Dataserie)
       },
 
       "Invandrade" = if ("invandring" %in% names(kommun_lista))
-        kommun_lista$invandring %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        kommun_lista$invandring %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk"),
 
       "Utvandrade" = if ("utvandring" %in% names(kommun_lista))
-        kommun_lista$utvandring %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        kommun_lista$utvandring %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk"),
 
       "Utrikes flyttnetto" = if ("invandring" %in% names(kommun_lista) &&
                                   "utvandring" %in% names(kommun_lista)) {
-        inv_h <- kommun_lista$invandring %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Inv = sum(Värde, na.rm = TRUE), .groups = "drop")
-        utv_h <- kommun_lista$utvandring %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Utv = sum(Värde, na.rm = TRUE), .groups = "drop")
-        inv_h %>% left_join(utv_h, by = "År") %>%
-          mutate(Värde = Inv - Utv, Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          select(År, Värde, Komponent, Dataserie)
+        inv_h <- kommun_lista$invandring %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Inv = sum(varde, na.rm = TRUE), .groups = "drop")
+        utv_h <- kommun_lista$utvandring %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Utv = sum(varde, na.rm = TRUE), .groups = "drop")
+        inv_h %>% left_join(utv_h, by = "ar") %>%
+          mutate(varde = Inv - Utv, Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          select(ar, varde, Komponent, Dataserie)
       },
 
       "Total befolkning" = if ("totfolkmangd" %in% names(kommun_lista))
-        kommun_lista$totfolkmangd %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        kommun_lista$totfolkmangd %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk"),
 
       "Total befolkningsförändring" = if ("totfolkmangd" %in% names(kommun_lista))
-        kommun_lista$totfolkmangd %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Bef = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          arrange(År) %>%
-          mutate(Värde = Bef - lag(Bef)) %>%
-          filter(!is.na(Värde)) %>%
+        kommun_lista$totfolkmangd %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Bef = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          arrange(ar) %>%
+          mutate(varde = Bef - lag(Bef)) %>%
+          filter(!is.na(varde)) %>%
           mutate(Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          select(År, Värde, Komponent, Dataserie),
+          select(ar, varde, Komponent, Dataserie),
 
       tibble()  # default – okänd komponenttyp
     )
@@ -516,16 +516,16 @@ skapa_komponent_data <- function(prognos, komponent_typ,
     if (is.null(historisk_data)) historisk_data <- tibble()
 
     if (nrow(historisk_data) > 0) {
-      max_hist <- max(as.numeric(historisk_data$År))
+      max_hist <- max(as.numeric(historisk_data$ar))
       min_hist <- max_hist - antal_historiska_ar + 1
       historisk_data <- historisk_data %>%
-        filter(as.numeric(År) >= min_hist) %>%
-        mutate(År = as.numeric(År))
+        filter(as.numeric(ar) >= min_hist) %>%
+        mutate(ar = as.numeric(ar))
     }
   }
 
   bind_rows(historisk_data, prognos_data) %>%
-    filter(!is.na(Värde))
+    filter(!is.na(varde))
 }
 
 #' Skapa interaktiv ggiraph-linjeplot för en demografisk komponent över tid.
@@ -541,13 +541,13 @@ skapa_komponent_plot <- function(data, titel) {
     ))
   }
 
-  prognos_ar <- data %>% filter(Dataserie == "Prognos") %>% pull(År)
+  prognos_ar <- data %>% filter(Dataserie == "Prognos") %>% pull(ar)
   brytpunkt  <- if (length(prognos_ar) > 0) min(prognos_ar) - 0.5 else NA
 
-  p <- ggplot(data, aes(x = År, y = Värde, color = Dataserie, group = Dataserie)) +
+  p <- ggplot(data, aes(x = ar, y = varde, color = Dataserie, group = Dataserie)) +
     geom_line(linewidth = 1) +
     geom_point_interactive(
-      aes(tooltip = paste0("År: ", År, "\nVärde: ", round(Värde))),
+      aes(tooltip = paste0("År: ", ar, "\nVärde: ", round(varde))),
       size = 2
     ) +
     scale_color_manual(values = c("Historisk" = "black", "Prognos" = "blue")) +
@@ -605,72 +605,72 @@ skapa_ettarsklass_data <- function(prognos, komponent_typ, valda_ar,
 
       "Födda efter moderns ålder" = {
         kv_fertil <- prognos$totalbefolkning %>%
-          filter(År == ar, Kön == "kvinnor", Ålder >= 15, Ålder <= 49) %>%
-          select(Ålder, Antal_kv = Värde)
+          filter(ar == .env$ar, kon == "kvinnor", alder >= 15, alder <= 49) %>%
+          select(alder, Antal_kv = varde)
 
         if (!is.null(fodelserisker)) {
           fr_ar <- fodelserisker %>%
-            filter(Region == geografi_namn, År == ar) %>%
-            select(Ålder, Fodelserisk = Värde)
+            filter(region == geografi_namn, ar == .env$ar) %>%
+            select(alder, Fodelserisk = varde)
           kv_fertil %>%
-            left_join(fr_ar, by = "Ålder") %>%
-            mutate(Värde     = replace_na(Antal_kv * Fodelserisk, 0),
-                   År        = ar,
+            left_join(fr_ar, by = "alder") %>%
+            mutate(varde     = replace_na(Antal_kv * Fodelserisk, 0),
+                   ar        = .env$ar,
                    Komponent = komponent_typ,
                    Dataserie = "Prognos") %>%
-            select(Ålder, År, Värde, Komponent, Dataserie)
+            select(alder, ar, varde, Komponent, Dataserie)
         } else tibble()
       },
 
       "Döda" = ar_komp$doda %>%
-        group_by(Ålder, År) %>%
-        summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        group_by(alder, ar) %>%
+        summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
         mutate(Komponent = komponent_typ, Dataserie = "Prognos"),
 
       "Inrikes inflyttade" = ar_komp$inrikes_inflyttning %>%
-        group_by(Ålder, År) %>%
-        summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        group_by(alder, ar) %>%
+        summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
         mutate(Komponent = komponent_typ, Dataserie = "Prognos"),
 
       "Inrikes utflyttade" = ar_komp$inrikes_utflyttning %>%
-        group_by(Ålder, År) %>%
-        summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        group_by(alder, ar) %>%
+        summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
         mutate(Komponent = komponent_typ, Dataserie = "Prognos"),
 
       "Inrikes flyttnetto" = {
         inf <- ar_komp$inrikes_inflyttning %>%
-          group_by(Ålder, År) %>% summarise(Infl = sum(Värde, na.rm = TRUE), .groups = "drop")
+          group_by(alder, ar) %>% summarise(Infl = sum(varde, na.rm = TRUE), .groups = "drop")
         utf <- ar_komp$inrikes_utflyttning %>%
-          group_by(Ålder, År) %>% summarise(Utf = sum(Värde, na.rm = TRUE), .groups = "drop")
-        inf %>% left_join(utf, by = c("Ålder", "År")) %>%
-          mutate(Värde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Prognos") %>%
-          select(Ålder, År, Värde, Komponent, Dataserie)
+          group_by(alder, ar) %>% summarise(Utf = sum(varde, na.rm = TRUE), .groups = "drop")
+        inf %>% left_join(utf, by = c("alder", "ar")) %>%
+          mutate(varde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Prognos") %>%
+          select(alder, ar, varde, Komponent, Dataserie)
       },
 
       "Invandrade" = ar_komp$invandring %>%
-        group_by(Ålder, År) %>%
-        summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        group_by(alder, ar) %>%
+        summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
         mutate(Komponent = komponent_typ, Dataserie = "Prognos"),
 
       "Utvandrade" = ar_komp$utvandring %>%
-        group_by(Ålder, År) %>%
-        summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        group_by(alder, ar) %>%
+        summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
         mutate(Komponent = komponent_typ, Dataserie = "Prognos"),
 
       "Utrikes flyttnetto" = {
         inv <- ar_komp$invandring %>%
-          group_by(Ålder, År) %>% summarise(Inv = sum(Värde, na.rm = TRUE), .groups = "drop")
+          group_by(alder, ar) %>% summarise(Inv = sum(varde, na.rm = TRUE), .groups = "drop")
         utv <- ar_komp$utvandring %>%
-          group_by(Ålder, År) %>% summarise(Utv = sum(Värde, na.rm = TRUE), .groups = "drop")
-        inv %>% left_join(utv, by = c("Ålder", "År")) %>%
-          mutate(Värde = Inv - Utv, Komponent = komponent_typ, Dataserie = "Prognos") %>%
-          select(Ålder, År, Värde, Komponent, Dataserie)
+          group_by(alder, ar) %>% summarise(Utv = sum(varde, na.rm = TRUE), .groups = "drop")
+        inv %>% left_join(utv, by = c("alder", "ar")) %>%
+          mutate(varde = Inv - Utv, Komponent = komponent_typ, Dataserie = "Prognos") %>%
+          select(alder, ar, varde, Komponent, Dataserie)
       },
 
       "Total befolkning" = prognos$totalbefolkning %>%
-        filter(År == ar) %>%
-        group_by(Ålder, År) %>%
-        summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
+        filter(ar == .env$ar) %>%
+        group_by(alder, ar) %>%
+        summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
         mutate(Komponent = komponent_typ, Dataserie = "Prognos"),
 
       tibble()
@@ -680,7 +680,7 @@ skapa_ettarsklass_data <- function(prognos, komponent_typ, valda_ar,
   }
 
   if (nrow(prognos_data) > 0) {
-    prognos_data <- prognos_data %>% mutate(År = as.numeric(År))
+    prognos_data <- prognos_data %>% mutate(ar = as.numeric(ar))
   }
 
   # --- Historisk data ---
@@ -695,96 +695,96 @@ skapa_ettarsklass_data <- function(prognos, komponent_typ, valda_ar,
                                          length(historiska_ar_tillg) > 0 &&
                                          "fodda" %in% names(kommun_lista) &&
                                          "totfolkmangd" %in% names(kommun_lista)) {
-        fodda_tot <- kommun_lista$fodda %>% filter(Region == geografi_namn) %>%
-          group_by(År) %>% summarise(Totalt = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(historiska_ar_tillg))
+        fodda_tot <- kommun_lista$fodda %>% filter(region == geografi_namn) %>%
+          group_by(ar) %>% summarise(Totalt = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar)) %>% filter(ar %in% as.numeric(historiska_ar_tillg))
 
         kv_fertil <- kommun_lista$totfolkmangd %>%
-          filter(Region == geografi_namn, Kön == "kvinnor", Ålder >= 15, Ålder <= 49) %>%
-          group_by(År, Ålder) %>%
-          summarise(Antal_kv = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(historiska_ar_tillg))
+          filter(region == geografi_namn, kon == "kvinnor", alder >= 15, alder <= 49) %>%
+          group_by(ar, alder) %>%
+          summarise(Antal_kv = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar)) %>% filter(ar %in% as.numeric(historiska_ar_tillg))
 
         # Normalfördelning (medel=30, sd=5) ger en rimlig approximation av
         # hur födslar fördelar sig på moderns ålder (15-49 år) när exakta
         # åldersspecifika födelsedata saknas för historiska år.
-        alder_fordeln <- tibble(Ålder = 15:49,
+        alder_fordeln <- tibble(alder = 15:49,
                                 Vikt  = dnorm(15:49, mean = 30, sd = 5)) %>%
           mutate(Vikt = Vikt / sum(Vikt))
 
         kv_fertil %>%
-          inner_join(fodda_tot, by = "År") %>%
-          left_join(alder_fordeln, by = "Ålder") %>%
-          group_by(År) %>%
+          inner_join(fodda_tot, by = "ar") %>%
+          left_join(alder_fordeln, by = "alder") %>%
+          group_by(ar) %>%
           mutate(Total_vikt = sum(Antal_kv * Vikt, na.rm = TRUE),
                  Andel = (Antal_kv * Vikt) / Total_vikt,
-                 Värde = Totalt * Andel,
+                 varde = Totalt * Andel,
                  Komponent = komponent_typ, Dataserie = "Historisk") %>%
           ungroup() %>%
-          select(Ålder, År, Värde, Komponent, Dataserie)
+          select(alder, ar, varde, Komponent, Dataserie)
       },
 
       "Döda" = if ("doda" %in% names(kommun_lista))
-        kommun_lista$doda %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År), Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          filter(År %in% as.numeric(valda_ar)),
+        kommun_lista$doda %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar), Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          filter(ar %in% as.numeric(valda_ar)),
 
       "Inrikes inflyttade" = if ("inrikes_inflyttade" %in% names(kommun_lista))
-        kommun_lista$inrikes_inflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År), Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          filter(År %in% as.numeric(valda_ar)),
+        kommun_lista$inrikes_inflyttade %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar), Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          filter(ar %in% as.numeric(valda_ar)),
 
       "Inrikes utflyttade" = if ("inrikes_utflyttade" %in% names(kommun_lista))
-        kommun_lista$inrikes_utflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År), Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          filter(År %in% as.numeric(valda_ar)),
+        kommun_lista$inrikes_utflyttade %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar), Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          filter(ar %in% as.numeric(valda_ar)),
 
       "Inrikes flyttnetto" = if ("inrikes_inflyttade" %in% names(kommun_lista) &&
                                   "inrikes_utflyttade" %in% names(kommun_lista)) {
-        inf_h <- kommun_lista$inrikes_inflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Infl = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(valda_ar))
-        utf_h <- kommun_lista$inrikes_utflyttade %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Utf = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(valda_ar))
-        inf_h %>% left_join(utf_h, by = c("Ålder", "År")) %>%
-          mutate(Värde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          select(Ålder, År, Värde, Komponent, Dataserie)
+        inf_h <- kommun_lista$inrikes_inflyttade %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(Infl = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar)) %>% filter(ar %in% as.numeric(valda_ar))
+        utf_h <- kommun_lista$inrikes_utflyttade %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(Utf = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar)) %>% filter(ar %in% as.numeric(valda_ar))
+        inf_h %>% left_join(utf_h, by = c("alder", "ar")) %>%
+          mutate(varde = Infl - Utf, Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          select(alder, ar, varde, Komponent, Dataserie)
       },
 
       "Invandrade" = if ("invandring" %in% names(kommun_lista))
-        kommun_lista$invandring %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År), Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          filter(År %in% as.numeric(valda_ar)),
+        kommun_lista$invandring %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar), Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          filter(ar %in% as.numeric(valda_ar)),
 
       "Utvandrade" = if ("utvandring" %in% names(kommun_lista))
-        kommun_lista$utvandring %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År), Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          filter(År %in% as.numeric(valda_ar)),
+        kommun_lista$utvandring %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar), Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          filter(ar %in% as.numeric(valda_ar)),
 
       "Utrikes flyttnetto" = if ("invandring" %in% names(kommun_lista) &&
                                   "utvandring" %in% names(kommun_lista)) {
-        inv_h <- kommun_lista$invandring %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Inv = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(valda_ar))
-        utv_h <- kommun_lista$utvandring %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Utv = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År)) %>% filter(År %in% as.numeric(valda_ar))
-        inv_h %>% left_join(utv_h, by = c("Ålder", "År")) %>%
-          mutate(Värde = Inv - Utv, Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          select(Ålder, År, Värde, Komponent, Dataserie)
+        inv_h <- kommun_lista$invandring %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(Inv = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar)) %>% filter(ar %in% as.numeric(valda_ar))
+        utv_h <- kommun_lista$utvandring %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(Utv = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar)) %>% filter(ar %in% as.numeric(valda_ar))
+        inv_h %>% left_join(utv_h, by = c("alder", "ar")) %>%
+          mutate(varde = Inv - Utv, Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          select(alder, ar, varde, Komponent, Dataserie)
       },
 
       "Total befolkning" = if ("totfolkmangd" %in% names(kommun_lista))
-        kommun_lista$totfolkmangd %>% filter(Region == geografi_namn) %>%
-          group_by(Ålder, År) %>% summarise(Värde = sum(Värde, na.rm = TRUE), .groups = "drop") %>%
-          mutate(År = as.numeric(År), Komponent = komponent_typ, Dataserie = "Historisk") %>%
-          filter(År %in% as.numeric(valda_ar)),
+        kommun_lista$totfolkmangd %>% filter(region == geografi_namn) %>%
+          group_by(alder, ar) %>% summarise(varde = sum(varde, na.rm = TRUE), .groups = "drop") %>%
+          mutate(ar = as.numeric(ar), Komponent = komponent_typ, Dataserie = "Historisk") %>%
+          filter(ar %in% as.numeric(valda_ar)),
 
       tibble()
     )
@@ -793,8 +793,8 @@ skapa_ettarsklass_data <- function(prognos, komponent_typ, valda_ar,
   }
 
   bind_rows(historisk_data, prognos_data) %>%
-    filter(!is.na(Värde)) %>%
-    mutate(År = as.numeric(År), Ålder = as.numeric(Ålder))
+    filter(!is.na(varde)) %>%
+    mutate(ar = as.numeric(ar), alder = as.numeric(alder))
 }
 
 #' Skapa åldersklass-plot (ggplot, statisk) med en linje per valt år.
@@ -811,15 +811,15 @@ skapa_ettarsklass_plot <- function(data, titel) {
   historisk_data <- data %>% filter(Dataserie == "Historisk")
   prognos_data   <- data %>% filter(Dataserie == "Prognos")
 
-  n_hist <- length(unique(historisk_data$År))
-  n_prog <- length(unique(prognos_data$År))
+  n_hist <- length(unique(historisk_data$ar))
+  n_prog <- length(unique(prognos_data$ar))
 
   hist_colors <- if (n_hist > 0)
     colorRampPalette(c("#B0B0B0", "#606060"))(n_hist) else character(0)
   prog_colors <- if (n_prog > 0)
     colorRampPalette(c("#4A90E2", "#1E5BA8"))(n_prog) else character(0)
 
-  all_years  <- c(sort(unique(historisk_data$År)), sort(unique(prognos_data$År)))
+  all_years  <- c(sort(unique(historisk_data$ar)), sort(unique(prognos_data$ar)))
   all_colors <- c(hist_colors, prog_colors)
   names(all_colors) <- as.character(all_years)
 
@@ -827,14 +827,14 @@ skapa_ettarsklass_plot <- function(data, titel) {
 
   if (nrow(historisk_data) > 0) {
     p <- p + geom_line(data = historisk_data,
-                       aes(x = Ålder, y = Värde,
-                           group = År, color = as.character(År)),
+                       aes(x = alder, y = varde,
+                           group = ar, color = as.character(ar)),
                        linewidth = 0.8, alpha = 0.5)
   }
   if (nrow(prognos_data) > 0) {
     p <- p + geom_line(data = prognos_data,
-                       aes(x = Ålder, y = Värde,
-                           group = År, color = as.character(År)),
+                       aes(x = alder, y = varde,
+                           group = ar, color = as.character(ar)),
                        linewidth = 1.8, alpha = 0.7)
   }
 

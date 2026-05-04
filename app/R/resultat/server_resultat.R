@@ -15,7 +15,7 @@ server_resultat <- function(input, output, session, app_kontext) {
     req(res())
 
     prognos_ar <- sort(as.numeric(
-      unique(res()$prognos$totalbefolkning$År)
+      unique(res()$prognos$totalbefolkning$ar)
     ))
     forsta_prognos_ar <- min(prognos_ar)
 
@@ -23,7 +23,7 @@ server_resultat <- function(input, output, session, app_kontext) {
     historiska_ar <- integer(0)
     kl <- res()$underlag$kommun_lista
     if (!is.null(kl) && "totfolkmangd" %in% names(kl)) {
-      historiska_ar <- sort(as.numeric(unique(kl$totfolkmangd$År)))
+      historiska_ar <- sort(as.numeric(unique(kl$totfolkmangd$ar)))
       historiska_ar <- historiska_ar[historiska_ar < forsta_prognos_ar]
     }
 
