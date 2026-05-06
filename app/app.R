@@ -8,6 +8,8 @@ library(tidyr)
 library(purrr)
 library(dbplyr)
 library(scales)
+library(openxlsx)
+library(shinyjs)
 
 source("R/kontext.R")
 
@@ -15,6 +17,8 @@ source("R/domain/prognos_kor.R")
 source("R/domain/data_provider.R")
 source("R/domain/risk_kor.R")
 source("R/domain/prognos_enskild.R")
+source("R/domain/prognos_regional.R")
+
 
 source("R/konfiguration/ui_risk.R")
 source("R/konfiguration/ui_revidera_komponenter.R")
@@ -48,10 +52,14 @@ lan_i_data <- geo_db %>%
 
 ui <- page_navbar(
   title = "Befolkningsprognos",
+  id    = "huvud_nav",
 
 
-  tags$head(
-    tags$link(rel = "stylesheet", type = "text/css", href = "app.css")
+  header = tagList(
+    shinyjs::useShinyjs(),
+    tags$head(
+      tags$link(rel = "stylesheet", type = "text/css", href = "app.css")
+    )
   ),
 
   nav_panel(

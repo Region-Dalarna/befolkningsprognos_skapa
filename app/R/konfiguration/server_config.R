@@ -208,22 +208,84 @@ server_config <- function(input, output, session, app_kontext) {
     shinyjs::disable("kor")
     on.exit(shinyjs::enable("kor"), add = TRUE)
 
-    showNotification(
-      "Prognosen körs …",
-      type     = "message",
-      duration = NULL
-    )
+    # --- Live-logg som visas i en sticky-notifikation ------------------
+    logg_id    <- "prognos_logg"
+    logg_rader <- character(0)
 
-    resultat <- tryCatch({
+    putsa_text <- function(txt) {
+      txt <- sub("\\s+$", "", txt)
+      txt <- gsub("\\s*\\(in-memory\\)", "", txt, ignore.case = TRUE)
+      txt <- gsub("_in_memory", "", txt, ignore.case = TRUE)
+      txt <- gsub("\\s+", " ", txt)
+      trimws(txt)
+    }
 
-      hamtat_underlag <- hamta_underlag_db(app_kontext$konfiguration)
+    uppdatera_logg <- function(ny_rad) {
+      ny_rad <- putsa_text(ny_rad)
+      if (!nzchar(ny_rad)) return(invisible())
+      logg_rader <<- c(logg_rader, ny_rad)
+      showNotification(
+        HTML(paste(
+          "<div style='max-height:220px; overflow:auto; font-family:monospace; font-size:0.85em;'>",
+          paste(utils::tail(logg_rader, 12), collapse = "<br>"),
+          "</div>"
+        )),
+        id          = logg_id,
+        duration    = NULL,
+        closeButton = FALSE,
+        type        = "default"
+      )
+    }
 
-      kor_prognos_enskild_in_memory(
-        konfiguration = app_kontext$konfiguration,
-        underlag = hamtat_underlag,
-        risktal = kor_riskberakningar_in_memory(app_kontext$konfiguration, hamtat_underlag)
-      )},
+    uppdatera_logg("⏳ Startar prognoskörning ...")
+
+    resultat <- tryCatch(
+      withCallingHandlers({
+
+        uppdatera_logg("Hämtar underlag från databasen ...")
+        hamtat_underlag <- normalisera_underlag(
+          hamta_underlag_db(app_kontext$konfiguration)
+        )
+
+        berakna_risktal <- kor_riskberakningar_in_memory(
+          underlag      = hamtat_underlag,
+          konfiguration = app_kontext$konfiguration
+        )
+
+        prognos <- if (isTRUE(app_kontext$konfiguration$prognostyp == "regional")) {
+          kor_prognos_regional_in_memory(
+            underlag      = hamtat_underlag,
+            risktal       = berakna_risktal,
+            konfiguration = app_kontext$konfiguration
+          )
+        } else {
+          kor_prognos_enskild_in_memory(
+            underlag      = hamtat_underlag,
+            risktal       = berakna_risktal,
+            konfiguration = app_kontext$konfiguration
+          )
+        }
+
+        list(
+          prognos       = prognos,
+          risktal       = berakna_risktal,
+          underlag      = hamtat_underlag,
+          konfiguration = app_kontext$konfiguration,
+          metadata      = list(
+            scenario = app_kontext$konfiguration$scenario,
+            geografi = if (isTRUE(app_kontext$konfiguration$prognostyp == "regional"))
+              app_kontext$konfiguration$regional_installningar$lan
+            else
+              app_kontext$konfiguration$enskild_geografi$namn
+          )
+        )
+      },
+      message = function(m) {
+        uppdatera_logg(conditionMessage(m))
+        invokeRestart("muffleMessage")
+      }),
       error = function(e) {
+        removeNotification(logg_id)
         showNotification(
           paste("Fel vid prognoskörning:", conditionMessage(e)),
           type = "error",
@@ -236,7 +298,9 @@ server_config <- function(input, output, session, app_kontext) {
     if (!is.null(resultat)) {
       app_kontext$resultat <- resultat
       app_kontext$fas <- "resultat"
+      removeNotification(logg_id)
       showNotification("✅ Prognos klar", type = "message", duration = 5)
+      bslib::nav_select("huvud_nav", "2. Resultat", session = session)
     } else {
       app_kontext$fas <- "konfiguration"
     }

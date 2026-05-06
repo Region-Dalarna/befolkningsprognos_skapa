@@ -4,8 +4,8 @@
 #
 # Inga filer läses från disk och inga RDS sparas –
 # allt sker in-memory via argument och returvärde.
-
-library(tidyverse)
+#
+# OBS: tidyverse-paketen laddas i app.R (ingen library() här).
 
 #' Kör befolkningsprognos för en enskild geografi (in-memory)
 #'
@@ -47,7 +47,7 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
   slutår  <- as.integer(konfiguration$prognos_slut)
 
   # Riksprognosdata
-  riksbefolkning_prognos       <- underlag$riket_lista$riket_prognosinvånare_grund
+  riksbefolkning_prognos       <- underlag$riket_lista$riket_prognosinvanare_grund
   invandring_till_riket_prognos <- underlag$riket_lista$invandring_riket
 
   if (!is.character(riksbefolkning_prognos$ar)) {
@@ -369,7 +369,7 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
   }
 
   berakna_invandring <- function(invandringsrisker_data, invandring_riket,
-                                  prognos_ar, geografi) {
+                                 prognos_ar, geografi) {
     invandring_ar        <- invandring_riket %>% filter(ar == prognos_ar)
     invandringsrisker_ar <- invandringsrisker_data %>%
       filter(ar == prognos_ar, region == geografi)
@@ -533,31 +533,31 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
   # HUVUDFUNKTION: KOhort-komponent-prognos
   # ===========================================================
   gora_befolkningsprognos_single <- function(basbefolkning, risktal,
-                                              riksbefolkning_prognos,
-                                              invandring_till_riket_prognos,
-                                              geografi, startår, slutår) {
+                                             riksbefolkning_prognos,
+                                             invandring_till_riket_prognos,
+                                             geografi, startår, slutår) {
     alla_resultat <- list()
     message(paste("Geografi:", geografi))
     message(paste("Period:", startår, "-", slutår, "\n"))
 
-    for (ar in as.character(startår:slutår)) {
-      message(paste0("  Beräknar år ", ar, "..."))
+    for (prognos_ar in as.character(startår:slutår)) {
+      message(paste0("  Beräknar år ", prognos_ar, "..."))
 
       # 1. Åldra befolkning
-      if (ar == startår) {
+      if (prognos_ar == as.character(startår)) {
         aktuell_befolkning <- basbefolkning %>%
-          mutate(ar = as.character(as.numeric(ar) + 1))
+          mutate(ar = .env$prognos_ar)
         aktuell_befolkning <- aldra_befolkning(aktuell_befolkning)
       } else {
         aktuell_befolkning <- alla_resultat[[
-          as.character(as.numeric(ar) - 1)]]$befolkning %>%
-          mutate(ar = ar)
+          as.character(as.numeric(prognos_ar) - 1)]]$befolkning %>%
+          mutate(ar = .env$prognos_ar)
         aktuell_befolkning <- aldra_befolkning(aktuell_befolkning)
       }
 
       # 2. Födda
       fodda_resultat <- berakna_fodda(
-        aktuell_befolkning, risktal$fodelserisker, ar)
+        aktuell_befolkning, risktal$fodelserisker, prognos_ar)
       aktuell_befolkning <- bind_rows(
         aktuell_befolkning, fodda_resultat$fodda)
 
@@ -566,7 +566,7 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
 
       # 4. Inrikes inflyttning
       inrikes_inflyttningar <- berakna_inrikes_inflyttningar(
-        risktal$inflyttningsrisker, riksbefolkning_prognos, ar, geografi)
+        risktal$inflyttningsrisker, riksbefolkning_prognos, prognos_ar, geografi)
 
       # 5. Inrikes utflyttning
       inrikes_utflyttningar <- berakna_inrikes_utflyttningar(
@@ -574,7 +574,7 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
 
       # 6. Invandring
       invandring <- berakna_invandring(
-        risktal$invandringsrisker, invandring_till_riket_prognos, ar, geografi)
+        risktal$invandringsrisker, invandring_till_riket_prognos, prognos_ar, geografi)
 
       # 7. Utvandring
       utvandring <- berakna_utvandring(
@@ -615,7 +615,7 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
         select(region, kon, alder, ar, varde = Ny_befolkning) %>%
         mutate(variabel = "Total folkmängd")
 
-      alla_resultat[[ar]] <- list(
+      alla_resultat[[prognos_ar]] <- list(
         befolkning  = ny_befolkning,
         komponenter = list(
           fodda              = fodda_resultat$fodda_rapport,

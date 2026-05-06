@@ -18,17 +18,6 @@ ui_config <- function(app_kontext, lan_i_data, geografier_i_data) {
             column(5,
                    card(
                      card_header("Geografi"),
-                     selectInput(
-                       "prognostyp", "Prognostyp",
-                       choices = c(
-                         "Regional (hela länet)" = "regional",
-                         "Enskild (ett område)"  = "enskild"
-                       )
-                     ),
-                     numericInput(
-                       "prognos_slut", "Prognosslutår",
-                       2050, min = 2026
-                     ),
                      conditionalPanel(
                        "input.prognostyp == 'regional'",
                        selectizeInput(
@@ -46,25 +35,42 @@ ui_config <- function(app_kontext, lan_i_data, geografier_i_data) {
                          choices = enskild_val,
                          selected = "Dalarnas län"
                        )
+                     ),
+                     selectInput(
+                       "prognostyp", "Prognostyp",
+                       choices = c(
+                         "Regional (hela länet)" = "regional",
+                         "Enskild (ett område)"  = "enskild"
+                       )
+                     ),
+                     numericInput(
+                       "prognos_slut", "Prognosslutår",
+                       2050, min = 2026
                      )
                    )
             ),
             column(7,
-                   card(
-                     card_header("Avancerat (grund)"),
-                     checkboxInput("ckm", "Använd CKM-data", TRUE),
-                     selectInput(
-                       "namnare_dodsrisker",
-                       "Nämnare för dödsrisker",
-                       choices = c(
-                         "Medelfolkmängd" = "medelfolkmangd",
-                         "Totfolkmängd (31 dec)" = "totfolkmangd"
-                       )
+                   tags$details(
+                     tags$summary(
+                       "⚙️ Avancerade inställningar",
+                       style = "cursor: pointer; font-weight: 600; padding: 0.75rem 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; user-select: none;"
                      ),
-                     checkboxInput(
-                       "dodsfall_fore_aldring",
-                       "Dödsfall före åldring",
-                       TRUE
+                     div(
+                       style = "padding: 1rem; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 4px 4px;",
+                       checkboxInput("ckm", "Använd CKM-data", TRUE),
+                       selectInput(
+                         "namnare_dodsrisker",
+                         "Nämnare för dödsrisker",
+                         choices = c(
+                           "Medelfolkmängd" = "medelfolkmangd",
+                           "Totfolkmängd (31 dec)" = "totfolkmangd"
+                         )
+                       ),
+                       checkboxInput(
+                         "dodsfall_fore_aldring",
+                         "Dödsfall före åldring",
+                         TRUE
+                       )
                      )
                    )
             )
@@ -76,6 +82,52 @@ ui_config <- function(app_kontext, lan_i_data, geografier_i_data) {
           card(
             card_header("Viktningsparametrar per demografisk komponent"),
 
+            ## ---- Förklaring ----
+            tags$div(
+              style = "padding: 0.75rem 1rem; border: 1px solid #cfe0f3; border-radius: 4px; background: #fafcff; font-size: 0.88em; margin-bottom: 0.75rem;",
+              tags$p(
+                tags$b("ℹ️ Förklaring av viktningsmetoder och Alpha")
+              ),
+                tags$p(
+                  tags$b("Antal år"),
+                  " avgör hur många historiska år som används för att beräkna risktalen.
+                  Fler år ger stabilare värden men reagerar långsammare på trendbrott."
+                ),
+                tags$p(tags$b("Viktningsmetoder:")),
+                tags$ul(
+                  tags$li(
+                    tags$b("1 – Jämn: "),
+                    "alla år väger lika mycket (1/N). Bra när historien är stabil och inga
+                    tydliga trender finns."
+                  ),
+                  tags$li(
+                    tags$b("2 – Linjär: "),
+                    "vikten ökar linjärt med året — det senaste året väger mest, det äldsta
+                    minst. Ger en mjuk övergång mot nyare data."
+                  ),
+                  tags$li(
+                    tags$b("3 – EWMA "),
+                    "(Exponentially Weighted Moving Average): vikten avtar exponentiellt
+                    bakåt i tiden. Reagerar snabbast på trendbrott."
+                  )
+                ),
+                tags$p(
+                  tags$b("Alpha (α)"),
+                  " styr hur snabbt EWMA-vikterna avtar bakåt i tiden, mellan 0,1 och 0,9:"
+                ),
+                tags$ul(
+                  tags$li(
+                    tags$b("Lågt alpha (t.ex. 0,1–0,2): "),
+                    "långsam avtagning — många år påverkar resultatet ungefär lika mycket.
+                    Stabilt men reagerar långsamt."
+                  ),
+                  tags$li(
+                    tags$b("Högt alpha (t.ex. 0,5–0,9): "),
+                    "snabb avtagning — de senaste åren dominerar. Reagerar snabbt på
+                    förändringar men blir känsligt för enskilda år."
+                  )
+                )
+            ),
 
             ## ---- Header-rad ----
             fluidRow(

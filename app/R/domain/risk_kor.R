@@ -74,17 +74,25 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
 
   spline_auto <- function(alder_vektor, varde_vektor, bevara_summa = TRUE) {
     if (length(alder_vektor) < 10) return(varde_vektor)
-    valid_idx <- !is.na(varde_vektor) & varde_vektor > 0
+    valid_idx <- is.finite(varde_vektor) & varde_vektor > 0
     if (sum(valid_idx) < 10) return(varde_vektor)
-    original_summa <- sum(varde_vektor, na.rm = TRUE)
+    original_summa <- sum(varde_vektor[is.finite(varde_vektor)], na.rm = TRUE)
     tryCatch({
-      spline_fit <- smooth.spline(
-        alder_vektor[valid_idx],
-        varde_vektor[valid_idx],
-        cv = TRUE,
-        all.knots = TRUE
+      spline_fit <- NULL
+      # Fångar Fortran-utskrifter (t.ex. "spar-finding: non-finite value...")
+      # så loggen inte spammas vid svåra dataprofiler.
+      utskrift <- utils::capture.output(
+        spline_fit <- suppressWarnings(stats::smooth.spline(
+          alder_vektor[valid_idx],
+          varde_vektor[valid_idx],
+          cv = FALSE,           # GCV är numeriskt stabilare än leave-one-out CV
+          all.knots = TRUE
+        )),
+        type = "output"
       )
-      pred_varden <- predict(spline_fit, alder_vektor)$y
+      if (is.null(spline_fit)) return(varde_vektor)
+      pred_varden <- stats::predict(spline_fit, alder_vektor)$y
+      pred_varden[!is.finite(pred_varden)] <- 0
       pred_varden <- pmax(pred_varden, 0)
       if (bevara_summa && original_summa > 0) {
         ny_summa <- sum(pred_varden, na.rm = TRUE)
@@ -366,7 +374,7 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       filter(region != "Riket")
     riket_medelfolkmangd_historisk   <- kommun_lista$medelfolkmangd %>%
       filter(region == "Riket")
-    riket_medelfolkmangd_prognos     <- riket_lista$riket_prognosinvånare_grund
+    riket_medelfolkmangd_prognos     <- riket_lista$riket_prognosinvanare_grund
 
     senaste_ar <- inflyttade %>%
       dplyr::pull(ar) %>% unique() %>% sort() %>% tail(antal_ar)
@@ -563,7 +571,7 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       ) %>%
       ungroup()
 
-    prognos_ar <- unique(riket_lista$riket_prognosinvånare_grund$ar)
+    prognos_ar <- unique(riket_lista$riket_prognosinvanare_grund$ar)
 
     utflyttningsrisker_prognos <- poolad_data_spline %>%
       select(region, kon, alder, varde = poolad_utflyttningsrisk_spline) %>%
@@ -741,7 +749,7 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       ) %>%
       ungroup()
 
-    prognos_ar <- unique(riket_lista$riket_prognosinvånare_grund$ar)
+    prognos_ar <- unique(riket_lista$riket_prognosinvanare_grund$ar)
 
     utvandringsrisker_prognos <- poolad_data_spline %>%
       select(region, kon, alder, varde = poolad_utvandringsrisk_spline) %>%
@@ -750,6 +758,40 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
       select(region, kon, alder, ar, variabel, varde)
 
     applicera_scenariojustering(utvandringsrisker_prognos, "utvandringsrisker")
+  }
+
+  # ===========================================================
+  # 7. LÄNSGRÄNSANDELAR (för regional avstämning)
+  #    Andel = ovriga_lan / total, poolad över historiska år och
+  #    expanderad till prognosår (en andel per region/kon/alder/ar).
+  # ===========================================================
+  berakna_lansgransandelar <- function(raw_data, antal_ar = 5,
+                                       variabel_namn = "Andel länsgräns") {
+    if (is.null(raw_data) || nrow(raw_data) == 0) return(tibble())
+
+    senaste_ar <- raw_data %>%
+      dplyr::pull(ar) %>% unique() %>% sort() %>% tail(antal_ar)
+
+    poolad <- raw_data %>%
+      filter(.data$ar %in% senaste_ar, region != "Riket") %>%
+      group_by(region, kon, alder) %>%
+      summarise(
+        total      = sum(.data$total,      na.rm = TRUE),
+        ovriga_lan = sum(.data$ovriga_lan, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        andel = if_else(.data$total > 0, .data$ovriga_lan / .data$total, 0),
+        andel = pmin(pmax(.data$andel, 0), 1)
+      ) %>%
+      select(region, kon, alder, varde = andel)
+
+    prognos_ar <- unique(riket_lista$riket_prognosinvanare_grund$ar)
+
+    poolad %>%
+      crossing(ar = prognos_ar) %>%
+      mutate(variabel = variabel_namn) %>%
+      select(region, kon, alder, ar, variabel, varde)
   }
 
   # ===========================================================
@@ -775,14 +817,28 @@ kor_riskberakningar_in_memory <- function(underlag, konfiguration) {
   utvandringsrisker  <- berakna_utvandringsrisker()  %>% filter(region != "Riket")
   message("✓ Utvandringsrisker klara")
 
+  inflyttningsandelar_lansgrans <- berakna_lansgransandelar(
+    kommun_lista$inflyttningar_lansgrans_raw,
+    antal_ar      = PARAMETRAR$inflyttningsrisker$antal_ar %||% 5,
+    variabel_namn = "Andel inflyttning över länsgräns"
+  )
+  utflyttningsandelar_lansgrans <- berakna_lansgransandelar(
+    kommun_lista$utflyttningar_lansgrans_raw,
+    antal_ar      = PARAMETRAR$utflyttningsrisker$antal_ar %||% 5,
+    variabel_namn = "Andel utflyttning över länsgräns"
+  )
+  message("✓ Länsgränsandelar klara")
+
   message("\n==== RISKBERÄKNINGAR KLARA ====\n")
 
   list(
-    fodelserisker      = fodelserisker,
-    dodsrisker         = dodsrisker,
-    inflyttningsrisker = inflyttningsrisker,
-    utflyttningsrisker = utflyttningsrisker,
-    invandringsrisker  = invandringsrisker,
-    utvandringsrisker  = utvandringsrisker
+    fodelserisker                 = fodelserisker,
+    dodsrisker                    = dodsrisker,
+    inflyttningsrisker            = inflyttningsrisker,
+    utflyttningsrisker            = utflyttningsrisker,
+    invandringsrisker             = invandringsrisker,
+    utvandringsrisker             = utvandringsrisker,
+    inflyttningsandelar_lansgrans = inflyttningsandelar_lansgrans,
+    utflyttningsandelar_lansgrans = utflyttningsandelar_lansgrans
   )
 }

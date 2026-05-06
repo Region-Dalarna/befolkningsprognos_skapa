@@ -16,7 +16,6 @@
 #   År       →  ar     (Ar → ar)
 #   Värde    →  varde  (Varde → varde)
 #   Variabel →  variabel
-#   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund  (listnyckel)
 #
 # Struktur för kommun_lista (snake_case kolumnnamn):
 #   $totfolkmangd          – tibble: region, alder, kon, ar, varde, variabel
@@ -31,8 +30,8 @@
 #   $inflyttningar_lansgrans_raw – tibble: region, ar, alder, kon, Total, Ovriga_lan
 #   $utflyttningar_lansgrans_raw – tibble: region, ar, alder, kon, Total, Ovriga_lan
 #
-# Struktur för riket_lista (snake_case kolumnnamn):
-#   $riket_prognosinvånare_grund – tibble: ar, alder, kon, varde
+# Struktur för riket_lista (snake_case kolumnnamn och listnycklar):
+#   $riket_prognosinvanare_grund – tibble: ar, alder, kon, varde
 #   $invandring_riket            – tibble: ar, alder, kon, varde
 #   $fodelsetal                  – tibble: ar, alder, varde  (fruktsamhetskvoter)
 #   $dodstal                     – tibble: ar, alder, kon, varde, variabel
@@ -76,40 +75,68 @@ hamta_underlag_db <- function(konfiguration) {
 
   uppkoppling <- shiny_uppkoppling_las("oppna_data")
 
-  # --- Kommuntabeller ---
-  kommunlista_namn <- c(
-    "medelfolkmangd",
-    "medelfolkmangd_modrar",
-    "fodda",
-    "doda",
-    "invandring",
-    "utvandring",
-    "inrikes_inflyttade",
-    "inrikes_utflyttade",
-    "totfolkmangd",
-    "totfolkmangd_modrar",
-    "inflyttningar_lansgrans_raw",
-    "utflyttningar_lansgrans_raw"
+  # Hjälpfunktion: hämta en tabell, prova alternativa namn (t.ex. med/utan å).
+  # Föredrar tabell med rader om flera alternativ träffar (skyddar mot fallet
+  # att både ASCII- och å-version finns men en av dem är tom). Returnerar
+  # NULL om ingen variant går att hämta.
+  hamta_tabell <- function(namn_alternativ) {
+    fallback <- NULL
+    for (tabnamn in namn_alternativ) {
+      res <- tryCatch(
+        dplyr::tbl(uppkoppling, dbplyr::in_schema("scb", tabnamn)) |>
+          dplyr::collect(),
+        error = function(e) NULL
+      )
+      if (is.null(res)) next
+      if (nrow(res) > 0) return(res)
+      if (is.null(fallback)) fallback <- res
+    }
+    fallback
+  }
+
+  # --- Kommuntabeller (listnyckel = ASCII-namn; värdet är vektor av möjliga DB-namn) ---
+  kommun_definitioner <- list(
+    medelfolkmangd               = "medelfolkmangd",
+    medelfolkmangd_modrar        = "medelfolkmangd_modrar",
+    fodda                        = "fodda",
+    doda                         = "doda",
+    invandring                   = "invandring",
+    utvandring                   = "utvandring",
+    inrikes_inflyttade           = "inrikes_inflyttade",
+    inrikes_utflyttade           = "inrikes_utflyttade",
+    totfolkmangd                 = "totfolkmangd",
+    inflyttningar_lansgrans_raw  = "inflyttningar_lansgrans_raw",
+    utflyttningar_lansgrans_raw  = "utflyttningar_lansgrans_raw"
   )
 
-  kommun_lista <- purrr::set_names(kommunlista_namn) |>
-    purrr::imap(~ dplyr::tbl(uppkoppling,
-                              dbplyr::in_schema("scb", .x)) |>
-                  dplyr::collect())
+  kommun_lista <- purrr::map(kommun_definitioner, hamta_tabell)
 
   # --- Rikstabeller ---
-  riketlista_namn <- c(
-    "dodstal",
-    "fodelsetal",
-    "invandring_riket",
-    "inrikesflyttningar_riket",
-    "riket_prognosinvanare_grund"
+  riket_definitioner <- list(
+    dodstal                      = "dodstal",
+    fodelsetal                   = "fodelsetal",
+    invandring_riket             = "invandring_riket",
+    # DB-tabellen kan heta antingen ASCII eller med å – prova båda.
+    riket_prognosinvanare_grund  = c("riket_prognosinvanare_grund",
+                                     "riket_prognosinvånare_grund")
   )
 
-  riket_lista <- purrr::set_names(riketlista_namn) |>
-    purrr::imap(~ dplyr::tbl(uppkoppling,
-                              dbplyr::in_schema("scb", .x)) |>
-                  dplyr::collect())
+  riket_lista <- purrr::map(riket_definitioner, hamta_tabell)
+
+  # --- Sanity-check: ge ett tydligt fel om någon tabell saknas ---
+  saknade_kommun <- names(kommun_lista)[vapply(kommun_lista, is.null, logical(1))]
+  saknade_riket  <- names(riket_lista)[vapply(riket_lista,  is.null, logical(1))]
+
+  if (length(saknade_kommun) > 0 || length(saknade_riket) > 0) {
+    stop(paste0(
+      "Följande tabeller kunde inte hämtas från schemat 'scb':\n",
+      if (length(saknade_kommun) > 0)
+        paste0("  kommun: ", paste(saknade_kommun, collapse = ", "), "\n") else "",
+      if (length(saknade_riket) > 0)
+        paste0("  riket: ",  paste(saknade_riket,  collapse = ", "), "\n") else "",
+      "Kontrollera tabellnamnen i databasen."
+    ))
+  }
 
   list(
     kommun_lista = kommun_lista,
@@ -130,7 +157,8 @@ hamta_underlag_db <- function(konfiguration) {
 #'   År       →  ar     (Ar → ar)
 #'   Värde    →  varde  (Varde → varde)
 #'   Variabel →  variabel
-#'   riket_prognosinvanare_grund  →  riket_prognosinvånare_grund  (listnyckel)
+#'   riket_prognosinvånare_grund  →  riket_prognosinvanare_grund  (listnyckel,
+#'     normaliseras till ASCII)
 #'
 #' @param underlag list med $kommun_lista och $riket_lista
 #' @return Samma struktur men med normaliserade kolumnnamn och listnycklar.
@@ -138,12 +166,14 @@ normalisera_underlag <- function(underlag) {
 
   # Mappning: lista av möjliga PascalCase-namn → önskat snake_case-namn
   kolumn_mapping <- list(
-    "region"   = c("Region"),
-    "alder"    = c("Ålder", "Alder"),
-    "kon"      = c("Kön", "Kon"),
-    "ar"       = c("År", "Ar"),
-    "varde"    = c("Värde", "Varde"),
-    "variabel" = c("Variabel")
+    "region"     = c("Region"),
+    "alder"      = c("Ålder", "Alder"),
+    "kon"        = c("Kön", "Kon"),
+    "ar"         = c("År", "Ar"),
+    "varde"      = c("Värde", "Varde"),
+    "variabel"   = c("Variabel"),
+    "total"      = c("Total"),
+    "ovriga_lan" = c("Ovriga_lan", "Övriga_län")
   )
 
   normalisera_kolumner <- function(tbl) {
@@ -160,13 +190,15 @@ normalisera_underlag <- function(underlag) {
   underlag$kommun_lista <- purrr::map(underlag$kommun_lista, normalisera_kolumner)
   underlag$riket_lista  <- purrr::map(underlag$riket_lista,  normalisera_kolumner)
 
-  # Byt listnyckel utan å-tecken → med å-tecken
-  if (!is.null(underlag$riket_lista[["riket_prognosinvanare_grund"]]) &&
-      is.null(underlag$riket_lista[["riket_prognosinvånare_grund"]])) {
-    underlag$riket_lista[["riket_prognosinvånare_grund"]] <-
-      underlag$riket_lista[["riket_prognosinvanare_grund"]]
-    underlag$riket_lista[["riket_prognosinvanare_grund"]] <- NULL
+  # Normalisera listnyckel med å-tecken → ASCII (om någon variant skulle
+  # levereras med å istället för det förväntade ASCII-namnet).
+  if (!is.null(underlag$riket_lista[["riket_prognosinvånare_grund"]]) &&
+      is.null(underlag$riket_lista[["riket_prognosinvanare_grund"]])) {
+    underlag$riket_lista[["riket_prognosinvanare_grund"]] <-
+      underlag$riket_lista[["riket_prognosinvånare_grund"]]
+    underlag$riket_lista[["riket_prognosinvånare_grund"]] <- NULL
   }
 
   underlag
 }
+

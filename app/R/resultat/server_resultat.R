@@ -9,6 +9,61 @@ server_resultat <- function(input, output, session, app_kontext) {
   })
 
   # ----------------------------------------------------------
+  # Geografi-väljare + nedladdningsknapp (regional prognos)
+  # ----------------------------------------------------------
+  output$vald_geografi_ui <- renderUI({
+    req(res())
+    er_regional <- isTRUE(res()$konfiguration$prognostyp == "regional")
+
+    lan_namn <- res()$metadata$geografi
+
+    val <- if (er_regional) {
+      kommuner <- names(res()$prognos$kommun_resultat %||% list())
+      # Länet finns redan i kommun_resultat – avduplicera
+      unique(c(lan_namn, sort(setdiff(kommuner, lan_namn))))
+    } else {
+      lan_namn
+    }
+
+    div(
+      style = "padding: 0.5rem 1rem; background: #f8f9fa; border-bottom: 1px solid #dee2e6;",
+      fluidRow(
+        column(4,
+               selectizeInput(
+                 "vald_geografi",
+                 "Visa geografi:",
+                 choices  = val,
+                 selected = lan_namn,
+                 width    = "100%",
+                 options  = list(placeholder = "Skriv för att söka …")
+               )
+        ),
+        column(4, offset = 4,
+               div(style = "padding-top: 28px; text-align: right;",
+                   downloadButton(
+                     "ladda_ner_excel",
+                     "Ladda ner prognos (Excel)",
+                     class = "btn-primary"
+                   )
+               )
+        )
+      )
+    )
+  })
+
+  # Aktiv prognos: län-nivå eller vald kommun
+  vald_prognos <- reactive({
+    req(res())
+    if (isTRUE(res()$konfiguration$prognostyp == "regional") &&
+        !is.null(input$vald_geografi) &&
+        input$vald_geografi != res()$metadata$geografi) {
+      kr <- res()$prognos$kommun_resultat[[input$vald_geografi]]
+      if (!is.null(kr)) return(kr)
+    }
+    res()$prognos
+  })
+
+  # ----------------------------------------------------------
   # Initiera UI-kontroller när nytt resultat finns
   # ----------------------------------------------------------
   observe({
@@ -54,7 +109,12 @@ server_resultat <- function(input, output, session, app_kontext) {
   output$metod_scenario_info <- renderUI({
     req(res())
     scenario <- res()$metadata$scenario %||% "standard"
-    geografi <- res()$metadata$geografi %||% "\u2013"
+    geografi <- if (isTRUE(res()$konfiguration$prognostyp == "regional") &&
+                    !is.null(input$vald_geografi)) {
+      input$vald_geografi
+    } else {
+      res()$metadata$geografi %||% "\u2013"
+    }
 
     tagList(
       h6("Geografi"),
@@ -151,47 +211,47 @@ server_resultat <- function(input, output, session, app_kontext) {
 
   data_total_befolkning <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Total befolkning", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Total befolkning", .get_kl())
   })
   data_total_forandring <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Total befolkningsförändring", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Total befolkningsförändring", .get_kl())
   })
   data_fodda <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Födda", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Födda", .get_kl())
   })
   data_doda <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Döda", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Döda", .get_kl())
   })
   data_fodelsenetto <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Födelsenetto", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Födelsenetto", .get_kl())
   })
   data_inrikes_inflyttade <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Inrikes inflyttade", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Inrikes inflyttade", .get_kl())
   })
   data_inrikes_utflyttade <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Inrikes utflyttade", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Inrikes utflyttade", .get_kl())
   })
   data_inrikes_netto <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Inrikes flyttnetto", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Inrikes flyttnetto", .get_kl())
   })
   data_invandrade <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Invandrade", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Invandrade", .get_kl())
   })
   data_utvandrade <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Utvandrade", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Utvandrade", .get_kl())
   })
   data_utrikes_netto <- reactive({
     req(res())
-    skapa_komponent_data(res()$prognos, "Utrikes flyttnetto", .get_kl())
+    skapa_komponent_data(vald_prognos(), "Utrikes flyttnetto", .get_kl())
   })
 
   # ----------------------------------------------------------
@@ -241,41 +301,41 @@ server_resultat <- function(input, output, session, app_kontext) {
 
   data_fodda_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Födda efter moderns ålder",
+    skapa_ettarsklass_data(vald_prognos(), "Födda efter moderns ålder",
                            .ar_ettar(), .get_kl(),
                            fodelserisker = res()$risktal$fodelserisker)
   })
   data_doda_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Döda", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Döda", .ar_ettar(), .get_kl())
   })
   data_total_befolkning_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Total befolkning", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Total befolkning", .ar_ettar(), .get_kl())
   })
   data_inrikes_inflyttade_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Inrikes inflyttade", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Inrikes inflyttade", .ar_ettar(), .get_kl())
   })
   data_inrikes_utflyttade_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Inrikes utflyttade", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Inrikes utflyttade", .ar_ettar(), .get_kl())
   })
   data_inrikes_netto_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Inrikes flyttnetto", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Inrikes flyttnetto", .ar_ettar(), .get_kl())
   })
   data_invandrade_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Invandrade", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Invandrade", .ar_ettar(), .get_kl())
   })
   data_utvandrade_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Utvandrade", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Utvandrade", .ar_ettar(), .get_kl())
   })
   data_utrikes_netto_ettar <- reactive({
     req(res(), .ar_ettar())
-    skapa_ettarsklass_data(res()$prognos, "Utrikes flyttnetto", .ar_ettar(), .get_kl())
+    skapa_ettarsklass_data(vald_prognos(), "Utrikes flyttnetto", .ar_ettar(), .get_kl())
   })
 
   # ----------------------------------------------------------
@@ -385,5 +445,255 @@ server_resultat <- function(input, output, session, app_kontext) {
     skapa_risk_plot_multi(data_utvandringsrisker(), "Utvandringsrisker",
                           "Utvandringsrisk", .kon_risk())
   })
+
+  # ----------------------------------------------------------
+  # EXCEL-NEDLADDNING
+  # ----------------------------------------------------------
+
+  .bygg_excel_data <- function(prognosobjekt, regionkod_lookup) {
+    if (is.null(prognosobjekt) || is.null(prognosobjekt$totalbefolkning)) {
+      return(NULL)
+    }
+
+    totbef <- prognosobjekt$totalbefolkning %>%
+      dplyr::select(region, kon, alder, ar, total_folkmangd = varde) %>%
+      dplyr::mutate(ar = as.integer(ar), alder = as.integer(alder))
+
+    plattning <- function(komp_namn) {
+      arsnycklar <- names(prognosobjekt$komponenter)
+      purrr::map_dfr(arsnycklar, function(arstr) {
+        d <- prognosobjekt$komponenter[[arstr]][[komp_namn]]
+        if (is.null(d) || nrow(d) == 0) return(NULL)
+        d %>%
+          dplyr::select(region, kon, alder, ar, varde) %>%
+          dplyr::mutate(ar = as.integer(ar), alder = as.integer(alder))
+      })
+    }
+
+    komp_kolumner <- c("fodda", "doda",
+                       "inrikes_inflyttning", "inrikes_utflyttning",
+                       "invandring", "utvandring")
+
+    resultat <- totbef
+    for (kn in komp_kolumner) {
+      d <- plattning(kn)
+      if (!is.null(d) && nrow(d) > 0) {
+        d <- d %>% dplyr::rename(!!kn := varde)
+        resultat <- dplyr::left_join(resultat, d,
+                                     by = c("region", "kon", "alder", "ar"))
+      } else {
+        resultat[[kn]] <- NA_real_
+      }
+    }
+
+    resultat$regionkod <- unname(regionkod_lookup[resultat$region])
+
+    resultat %>%
+      dplyr::select(regionkod, region, kon, alder, ar,
+                    total_folkmangd, fodda, doda,
+                    inrikes_inflyttning, inrikes_utflyttning,
+                    invandring, utvandring) %>%
+      dplyr::arrange(region, ar, kon, alder)
+  }
+
+  .bygg_antaganden <- function(konfig) {
+    komp_def <- list(
+      list(id = "fodelserisker",      label = "Födelserisker",      def_alpha = 0.5),
+      list(id = "dodsrisker",         label = "Dödsrisker",         def_alpha = 0.5),
+      list(id = "inflyttningsrisker", label = "Inflyttningsrisker", def_alpha = 0.5),
+      list(id = "utflyttningsrisker", label = "Utflyttningsrisker", def_alpha = 0.5),
+      list(id = "invandringsrisker",  label = "Invandringsrisker",  def_alpha = 0.3),
+      list(id = "utvandringsrisker",  label = "Utvandringsrisker",  def_alpha = 0.3)
+    )
+
+    scenario <- konfig$scenario %||% "standard"
+    geografi <- if (isTRUE(konfig$prognostyp == "regional"))
+      konfig$regional_installningar$lan
+    else
+      konfig$enskild_geografi$namn
+
+    generellt <- data.frame(
+      Inställning = c("Prognostyp", "Scenario", "Slutår", "Geografi", "Avrundning"),
+      Värde = c(
+        konfig$prognostyp %||% "",
+        scenario,
+        as.character(konfig$prognos_slut %||% ""),
+        geografi %||% "",
+        konfig$avrundning %||% ""
+      ),
+      stringsAsFactors = FALSE
+    )
+
+    forklaring_rader <- data.frame(
+      Begrepp = c(
+        "Antal år",
+        "1 – Jämn",
+        "2 – Linjär",
+        "3 – EWMA",
+        "Alpha (α)",
+        "  Lågt alpha (0,1–0,2)",
+        "  Högt alpha (0,5–0,9)"
+      ),
+      Förklaring = c(
+        "Antal historiska år som används för att beräkna risktalen. Fler år ger stabilare värden men reagerar långsammare på trendbrott.",
+        "Alla år väger lika mycket (1/N). Bra när historien är stabil och inga tydliga trender finns.",
+        "Vikten ökar linjärt med året – det senaste året väger mest, det äldsta minst. Ger en mjuk övergång mot nyare data.",
+        "Exponentially Weighted Moving Average. Vikten avtar exponentiellt bakåt i tiden. Reagerar snabbast på trendbrott.",
+        "Styr hur snabbt EWMA-vikterna avtar bakåt i tiden (mellan 0,1 och 0,9).",
+        "Långsam avtagning – många år påverkar resultatet ungefär lika mycket. Stabilt men reagerar långsamt.",
+        "Snabb avtagning – de senaste åren dominerar. Reagerar snabbt men blir känsligt för enskilda år."
+      ),
+      stringsAsFactors = FALSE
+    )
+
+    risktal_rader <- purrr::map_dfr(komp_def, function(k) {
+      params <- konfig$riskparametrar[[k$id]]
+      if (is.null(params)) return(NULL)
+      vtyp <- params$viktningstyp
+      alpha_v <- if (!is.null(params$alpha)) params$alpha else k$def_alpha
+      vikt_info <- formatera_vikter(params$antal_ar, vtyp, alpha_v)
+      data.frame(
+        Komponent      = k$label,
+        Antal_år       = params$antal_ar,
+        Viktningsmetod = vikt_info$metod,
+        Vikter_per_år  = vikt_info$vikter,
+        stringsAsFactors = FALSE
+      )
+    })
+
+    just_rader <- if (scenario == "alternativ" &&
+                      !is.null(konfig$alternativ_justeringar)) {
+      purrr::map_dfr(komp_def, function(k) {
+        j <- konfig$alternativ_justeringar[[k$id]]
+        if (is.null(j) || length(j$perioder) == 0) return(NULL)
+        purrr::map_dfr(j$perioder, function(p) {
+          data.frame(
+            Komponent     = k$label,
+            Från_år       = p$från_år,
+            Till_år       = p$till_år,
+            Multiplikator = p$multiplikator,
+            Förändring    = sprintf("%+.0f%%", (p$multiplikator - 1) * 100),
+            stringsAsFactors = FALSE
+          )
+        })
+      })
+    } else {
+      data.frame(
+        Komponent     = character(0),
+        Från_år       = integer(0),
+        Till_år       = integer(0),
+        Multiplikator = numeric(0),
+        Förändring    = character(0),
+        stringsAsFactors = FALSE
+      )
+    }
+
+    list(generellt = generellt, forklaring = forklaring_rader,
+         risktal = risktal_rader, justeringar = just_rader)
+  }
+
+  output$ladda_ner_excel <- downloadHandler(
+    filename = function() {
+      r <- res()
+      geo <- if (isTRUE(r$konfiguration$prognostyp == "regional"))
+        r$konfiguration$regional_installningar$lan
+      else
+        r$konfiguration$enskild_geografi$namn
+      geo_safe <- gsub("[^A-Za-z0-9_-]+", "_", geo %||% "prognos")
+      paste0("befolkningsprognos_", geo_safe, "_",
+             format(Sys.time(), "%Y%m%d_%H%M"), ".xlsx")
+    },
+    content = function(file) {
+      r <- res()
+      konfig <- r$konfiguration
+
+      geo_data <- tryCatch(hamta_geografi_val(), error = function(e) NULL)
+      regionkod_lookup <- c()
+      if (!is.null(geo_data)) {
+        alla <- c(geo_data$lan_val, geo_data$enskild_val$Kommun)
+        regionkod_lookup <- setNames(unname(alla), names(alla))
+      }
+
+      data_df <- if (isTRUE(konfig$prognostyp == "regional") &&
+                     !is.null(r$prognos$kommun_resultat)) {
+        purrr::map_dfr(r$prognos$kommun_resultat, function(kr) {
+          .bygg_excel_data(kr, regionkod_lookup)
+        })
+      } else {
+        .bygg_excel_data(r$prognos, regionkod_lookup)
+      }
+
+      antaganden <- .bygg_antaganden(konfig)
+
+      wb <- openxlsx::createWorkbook()
+
+      header_style <- openxlsx::createStyle(
+        textDecoration = "bold", fgFill = "#305496",
+        fontColour = "white", border = "bottom", halign = "left"
+      )
+      rubrik_style <- openxlsx::createStyle(
+        textDecoration = "bold", fontSize = 12
+      )
+
+      openxlsx::addWorksheet(wb, "data")
+      openxlsx::writeData(wb, "data", data_df, headerStyle = header_style)
+      openxlsx::freezePane(wb, "data", firstRow = TRUE)
+      openxlsx::setColWidths(wb, "data", cols = 1:ncol(data_df), widths = "auto")
+
+      openxlsx::addWorksheet(wb, "antaganden")
+
+      rad <- 1
+      openxlsx::writeData(wb, "antaganden", "Generella inställningar",
+                          startRow = rad, startCol = 1)
+      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+      rad <- rad + 1
+      openxlsx::writeData(wb, "antaganden", antaganden$generellt,
+                          startRow = rad, startCol = 1,
+                          headerStyle = header_style)
+      rad <- rad + nrow(antaganden$generellt) + 3
+
+      openxlsx::writeData(wb, "antaganden", "Förklaring – viktningsmetoder och Alpha",
+                          startRow = rad, startCol = 1)
+      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+      rad <- rad + 1
+      openxlsx::writeData(wb, "antaganden", antaganden$forklaring,
+                          startRow = rad, startCol = 1,
+                          headerStyle = header_style)
+      rad <- rad + nrow(antaganden$forklaring) + 3
+
+      openxlsx::writeData(wb, "antaganden", "Risktal – inställningar per komponent",
+                          startRow = rad, startCol = 1)
+      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+      rad <- rad + 1
+      openxlsx::writeData(wb, "antaganden", antaganden$risktal,
+                          startRow = rad, startCol = 1,
+                          headerStyle = header_style)
+      rad <- rad + nrow(antaganden$risktal) + 3
+
+      openxlsx::writeData(wb, "antaganden", "Scenariojusteringar (alternativscenario)",
+                          startRow = rad, startCol = 1)
+      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+      rad <- rad + 1
+      if (nrow(antaganden$justeringar) > 0) {
+        openxlsx::writeData(wb, "antaganden", antaganden$justeringar,
+                            startRow = rad, startCol = 1,
+                            headerStyle = header_style)
+      } else {
+        openxlsx::writeData(wb, "antaganden",
+                            "Inga justeringar (standardscenario)",
+                            startRow = rad, startCol = 1)
+      }
+
+      openxlsx::setColWidths(wb, "antaganden", cols = 1:6, widths = "auto")
+
+      openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+    }
+  )
+
+  # Auto-trigga nedladdning när ett nytt prognosresultat finns.
+  # Liten fördröjning för att säkerställa att downloadButton hunnit renderas.
+  observeEvent(res(), {
+    shinyjs::delay(800, shinyjs::click("ladda_ner_excel"))
+  }, ignoreInit = TRUE)
 
 }
