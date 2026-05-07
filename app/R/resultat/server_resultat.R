@@ -40,10 +40,11 @@ server_resultat <- function(input, output, session, app_kontext) {
         ),
         column(4, offset = 4,
                div(style = "padding-top: 28px; text-align: right;",
-                   downloadButton(
-                     "ladda_ner_excel",
-                     "Ladda ner prognos (Excel)",
-                     class = "btn-primary"
+                   actionButton(
+                     "spara_prognos_btn",
+                     "💾 Spara prognos (Excel)",
+                     class = "btn-primary",
+                     icon = NULL
                    )
                )
         )
@@ -531,17 +532,19 @@ server_resultat <- function(input, output, session, app_kontext) {
         "2 – Linjär",
         "3 – EWMA",
         "Alpha (α)",
-        "  Lågt alpha (0,1–0,2)",
-        "  Högt alpha (0,5–0,9)"
+        "  Lågt alpha (0,1–0,3) – långsam anpassning",
+        "  Mellanalpha (0,4–0,6) – balanserad anpassning",
+        "  Högt alpha (0,7–0,9) – snabb anpassning"
       ),
       Förklaring = c(
         "Antal historiska år som används för att beräkna risktalen. Fler år ger stabilare värden men reagerar långsammare på trendbrott.",
         "Alla år väger lika mycket (1/N). Bra när historien är stabil och inga tydliga trender finns.",
         "Vikten ökar linjärt med året – det senaste året väger mest, det äldsta minst. Ger en mjuk övergång mot nyare data.",
         "Exponentially Weighted Moving Average. Vikten avtar exponentiellt bakåt i tiden. Reagerar snabbast på trendbrott.",
-        "Styr hur snabbt EWMA-vikterna avtar bakåt i tiden (mellan 0,1 och 0,9).",
-        "Långsam avtagning – många år påverkar resultatet ungefär lika mycket. Stabilt men reagerar långsamt.",
-        "Snabb avtagning – de senaste åren dominerar. Reagerar snabbt men blir känsligt för enskilda år."
+        "Styr hur snabbt EWMA-vikterna avtar bakåt i tiden (mellan 0,1 och 0,9). Använd komma som decimaltecken.",
+        "Många år påverkar resultatet ungefär lika mycket. Stabilt men reagerar långsamt på trendbrott.",
+        "Rimlig balans mellan stabilitet och lyhördhet för senare års mönster.",
+        "De senaste åren dominerar. Reagerar snabbt men blir känsligt för enskilda år."
       ),
       stringsAsFactors = FALSE
     )
@@ -592,108 +595,141 @@ server_resultat <- function(input, output, session, app_kontext) {
          risktal = risktal_rader, justeringar = just_rader)
   }
 
-  output$ladda_ner_excel <- downloadHandler(
-    filename = function() {
-      r <- res()
-      geo <- if (isTRUE(r$konfiguration$prognostyp == "regional"))
-        r$konfiguration$regional_installningar$lan
-      else
-        r$konfiguration$enskild_geografi$namn
-      geo_safe <- gsub("[^A-Za-z0-9_-]+", "_", geo %||% "prognos")
-      paste0("befolkningsprognos_", geo_safe, "_",
-             format(Sys.time(), "%Y%m%d_%H%M"), ".xlsx")
-    },
-    content = function(file) {
-      r <- res()
-      konfig <- r$konfiguration
+  # Bygg arbetsboken och spara till temp-fil. Returnerar sökvägen.
+  .bygg_prognos_excel <- function(r) {
+    konfig <- r$konfiguration
 
-      geo_data <- tryCatch(hamta_geografi_val(), error = function(e) NULL)
-      regionkod_lookup <- c()
-      if (!is.null(geo_data)) {
-        alla <- c(geo_data$lan_val, geo_data$enskild_val$Kommun)
-        regionkod_lookup <- setNames(unname(alla), names(alla))
-      }
-
-      data_df <- if (isTRUE(konfig$prognostyp == "regional") &&
-                     !is.null(r$prognos$kommun_resultat)) {
-        purrr::map_dfr(r$prognos$kommun_resultat, function(kr) {
-          .bygg_excel_data(kr, regionkod_lookup)
-        })
-      } else {
-        .bygg_excel_data(r$prognos, regionkod_lookup)
-      }
-
-      antaganden <- .bygg_antaganden(konfig)
-
-      wb <- openxlsx::createWorkbook()
-
-      header_style <- openxlsx::createStyle(
-        textDecoration = "bold", fgFill = "#305496",
-        fontColour = "white", border = "bottom", halign = "left"
-      )
-      rubrik_style <- openxlsx::createStyle(
-        textDecoration = "bold", fontSize = 12
-      )
-
-      openxlsx::addWorksheet(wb, "data")
-      openxlsx::writeData(wb, "data", data_df, headerStyle = header_style)
-      openxlsx::freezePane(wb, "data", firstRow = TRUE)
-      openxlsx::setColWidths(wb, "data", cols = 1:ncol(data_df), widths = "auto")
-
-      openxlsx::addWorksheet(wb, "antaganden")
-
-      rad <- 1
-      openxlsx::writeData(wb, "antaganden", "Generella inställningar",
-                          startRow = rad, startCol = 1)
-      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
-      rad <- rad + 1
-      openxlsx::writeData(wb, "antaganden", antaganden$generellt,
-                          startRow = rad, startCol = 1,
-                          headerStyle = header_style)
-      rad <- rad + nrow(antaganden$generellt) + 3
-
-      openxlsx::writeData(wb, "antaganden", "Förklaring – viktningsmetoder och Alpha",
-                          startRow = rad, startCol = 1)
-      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
-      rad <- rad + 1
-      openxlsx::writeData(wb, "antaganden", antaganden$forklaring,
-                          startRow = rad, startCol = 1,
-                          headerStyle = header_style)
-      rad <- rad + nrow(antaganden$forklaring) + 3
-
-      openxlsx::writeData(wb, "antaganden", "Risktal – inställningar per komponent",
-                          startRow = rad, startCol = 1)
-      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
-      rad <- rad + 1
-      openxlsx::writeData(wb, "antaganden", antaganden$risktal,
-                          startRow = rad, startCol = 1,
-                          headerStyle = header_style)
-      rad <- rad + nrow(antaganden$risktal) + 3
-
-      openxlsx::writeData(wb, "antaganden", "Scenariojusteringar (alternativscenario)",
-                          startRow = rad, startCol = 1)
-      openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
-      rad <- rad + 1
-      if (nrow(antaganden$justeringar) > 0) {
-        openxlsx::writeData(wb, "antaganden", antaganden$justeringar,
-                            startRow = rad, startCol = 1,
-                            headerStyle = header_style)
-      } else {
-        openxlsx::writeData(wb, "antaganden",
-                            "Inga justeringar (standardscenario)",
-                            startRow = rad, startCol = 1)
-      }
-
-      openxlsx::setColWidths(wb, "antaganden", cols = 1:6, widths = "auto")
-
-      openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+    geo_data <- tryCatch(hamta_geografi_val(), error = function(e) NULL)
+    regionkod_lookup <- c()
+    if (!is.null(geo_data)) {
+      alla <- c(geo_data$lan_val, geo_data$enskild_val$Kommun)
+      regionkod_lookup <- setNames(unname(alla), names(alla))
     }
-  )
 
-  # Auto-trigga nedladdning när ett nytt prognosresultat finns.
-  # Liten fördröjning för att säkerställa att downloadButton hunnit renderas.
+    data_df <- if (isTRUE(konfig$prognostyp == "regional") &&
+                   !is.null(r$prognos$kommun_resultat)) {
+      purrr::map_dfr(r$prognos$kommun_resultat, function(kr) {
+        .bygg_excel_data(kr, regionkod_lookup)
+      })
+    } else {
+      .bygg_excel_data(r$prognos, regionkod_lookup)
+    }
+
+    antaganden <- .bygg_antaganden(konfig)
+
+    wb <- openxlsx::createWorkbook()
+
+    header_style <- openxlsx::createStyle(
+      textDecoration = "bold", fgFill = "#305496",
+      fontColour = "white", border = "bottom", halign = "left"
+    )
+    rubrik_style <- openxlsx::createStyle(
+      textDecoration = "bold", fontSize = 12
+    )
+
+    openxlsx::addWorksheet(wb, "data")
+    openxlsx::writeData(wb, "data", data_df, headerStyle = header_style)
+    openxlsx::freezePane(wb, "data", firstRow = TRUE)
+    openxlsx::setColWidths(wb, "data", cols = 1:ncol(data_df), widths = "auto")
+
+    openxlsx::addWorksheet(wb, "antaganden")
+
+    rad <- 1
+    openxlsx::writeData(wb, "antaganden", "Generella inställningar",
+                        startRow = rad, startCol = 1)
+    openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+    rad <- rad + 1
+    openxlsx::writeData(wb, "antaganden", antaganden$generellt,
+                        startRow = rad, startCol = 1,
+                        headerStyle = header_style)
+    rad <- rad + nrow(antaganden$generellt) + 3
+
+    openxlsx::writeData(wb, "antaganden", "Förklaring – viktningsmetoder och Alpha",
+                        startRow = rad, startCol = 1)
+    openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+    rad <- rad + 1
+    openxlsx::writeData(wb, "antaganden", antaganden$forklaring,
+                        startRow = rad, startCol = 1,
+                        headerStyle = header_style)
+    rad <- rad + nrow(antaganden$forklaring) + 3
+
+    openxlsx::writeData(wb, "antaganden", "Risktal – inställningar per komponent",
+                        startRow = rad, startCol = 1)
+    openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+    rad <- rad + 1
+    openxlsx::writeData(wb, "antaganden", antaganden$risktal,
+                        startRow = rad, startCol = 1,
+                        headerStyle = header_style)
+    rad <- rad + nrow(antaganden$risktal) + 3
+
+    openxlsx::writeData(wb, "antaganden", "Scenariojusteringar (alternativscenario)",
+                        startRow = rad, startCol = 1)
+    openxlsx::addStyle(wb, "antaganden", rubrik_style, rows = rad, cols = 1)
+    rad <- rad + 1
+    if (nrow(antaganden$justeringar) > 0) {
+      openxlsx::writeData(wb, "antaganden", antaganden$justeringar,
+                          startRow = rad, startCol = 1,
+                          headerStyle = header_style)
+    } else {
+      openxlsx::writeData(wb, "antaganden",
+                          "Inga justeringar (standardscenario)",
+                          startRow = rad, startCol = 1)
+    }
+
+    openxlsx::setColWidths(wb, "antaganden", cols = 1:6, widths = "auto")
+
+    tmp <- tempfile(fileext = ".xlsx")
+    openxlsx::saveWorkbook(wb, tmp, overwrite = TRUE)
+    tmp
+  }
+
+  # Förslag på filnamn — samma format som tidigare.
+  .prognos_filnamn <- function(r) {
+    geo <- if (isTRUE(r$konfiguration$prognostyp == "regional"))
+      r$konfiguration$regional_installningar$lan
+    else
+      r$konfiguration$enskild_geografi$namn
+    # Tillåt alla unicode-bokstäver (åäö m.fl.) och siffror i filnamnet.
+    geo_safe <- gsub("[^\\p{L}\\p{N}_-]+", "_", geo %||% "prognos", perl = TRUE)
+    paste0("befolkningsprognos_", geo_safe, "_",
+           format(Sys.time(), "%Y%m%d_%H%M"), ".xlsx")
+  }
+
+  # Bygger Excel, base64-kodar och skickar till klienten. JS-handlern
+  # försöker showSaveFilePicker; faller tillbaka till vanlig nedladdning
+  # om webbläsaren saknar API eller om anropet sker utan användargest.
+  .skicka_prognos_excel <- function(r) {
+    tmp <- .bygg_prognos_excel(r)
+    on.exit(unlink(tmp), add = TRUE)
+    raw_bytes <- readBin(tmp, what = "raw", n = file.info(tmp)$size)
+    b64       <- jsonlite::base64_enc(raw_bytes)
+    session$sendCustomMessage("spara_prognos_filer", list(
+      filnamn      = .prognos_filnamn(r),
+      innehall_b64 = b64
+    ))
+  }
+
+  observeEvent(input$spara_prognos_btn, {
+    .skicka_prognos_excel(res())
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$spara_prognos_status, {
+    st <- input$spara_prognos_status
+    if (isTRUE(st$ok)) {
+      showNotification("✅ Prognos sparad", type = "message", duration = 4)
+    } else if (!is.null(st$fel)) {
+      showNotification(
+        paste("❌ Kunde inte spara filen:", st$fel),
+        type = "error", duration = 10
+      )
+    }
+  }, ignoreInit = TRUE)
+
+  # Auto-trigga sparning när ett nytt prognosresultat finns.
+  # Eftersom auto-anropet saknar användargest faller JS-handlern
+  # tillbaka till vanlig nedladdning (utan Save As-dialog).
   observeEvent(res(), {
-    shinyjs::delay(800, shinyjs::click("ladda_ner_excel"))
+    .skicka_prognos_excel(res())
   }, ignoreInit = TRUE)
 
 }

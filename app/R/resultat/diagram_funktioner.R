@@ -10,11 +10,6 @@
 #     inrikes_utflyttning, invandring, utvandring  (utan svenska specialtecken).
 #   - Risktal hämtas som tibble direkt ur risktal-listan (risktal$fodelserisker etc.).
 
-library(ggplot2)
-library(ggiraph)
-library(dplyr)
-library(tidyr)
-library(scales)
 
 # ===========================================================
 # HJÄLPFUNKTIONER – VIKTER OCH JUSTERINGSTEXTER

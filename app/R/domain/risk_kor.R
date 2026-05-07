@@ -5,8 +5,6 @@
 # Inga filer läses från disk och inga RDS sparas –
 # allt sker in-memory via argument och returvärde.
 
-library(tidyverse)
-library(zoo)
 
 #' Beräkna demografiska risktal in-memory
 #'

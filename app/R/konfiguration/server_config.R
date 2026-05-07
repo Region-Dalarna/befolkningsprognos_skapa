@@ -3,9 +3,9 @@ server_config <- function(input, output, session, app_kontext) {
 
   # 1. Definiera listan med komponenter
   komp_lista <- list(
-    list(id="fodelserisker",      label="Födelserisker",      def_fran=2030, def_mult=1.05),
-    list(id="dodsrisker",         label="Dödsrisker",         def_fran=2027, def_mult=0.98),
-    list(id="inflyttningsrisker", label="Inflyttningsrisker", def_fran=2026, def_mult=1.10),
+    list(id="fodelserisker",      label="Födelserisker",      def_fran=2030, def_mult=1.00),
+    list(id="dodsrisker",         label="Dödsrisker",         def_fran=2027, def_mult=1.00),
+    list(id="inflyttningsrisker", label="Inflyttningsrisker", def_fran=2026, def_mult=1.00),
     list(id="utflyttningsrisker", label="Utflyttningsrisker", def_fran=2026, def_mult=1.00),
     list(id="invandringsrisker",  label="Invandringsrisker",  def_fran=2026, def_mult=1.00),
     list(id="utvandringsrisker",  label="Utvandringsrisker",  def_fran=2026, def_mult=1.00)
@@ -60,11 +60,11 @@ server_config <- function(input, output, session, app_kontext) {
                      )
               ),
               column(4,
-                     numericInput(
+                     textInput(
                        paste0("alt_mult_", kid, "_", i),
                        "Multiplikator",
-                       value = df$mult[i],
-                       min = 0.5, max = 1.5, step = 0.01
+                       value = format_decimal(df$mult[i], decimals = 2),
+                       placeholder = "1,00"
                      )
               )
             )
@@ -122,8 +122,7 @@ server_config <- function(input, output, session, app_kontext) {
           viktningstyp = vtyp
         )
         if (!is.na(vtyp) && vtyp == 3) {
-          alpha_val    <- input[[paste0("risk_alpha_", id)]]
-          params$alpha <- if (!is.null(alpha_val)) as.numeric(alpha_val) else 0.33
+          params$alpha <- parse_decimal(input[[paste0("risk_alpha_", id)]], default = 0.33)
         }
         params
       }
@@ -137,10 +136,21 @@ server_config <- function(input, output, session, app_kontext) {
         function(id) {
           df <- alt_perioder[[id]]()
           perioder <- lapply(seq_len(nrow(df)), function(i) {
+            # Läs aktuella värden från input — användarens inmatning
+            # speglas inte tillbaka till df innan körning, så vi måste
+            # läsa varje fält direkt.
+            fr_in  <- input[[paste0("alt_fran_", id, "_", i)]]
+            til_in <- input[[paste0("alt_till_", id, "_", i)]]
+            mu_in  <- input[[paste0("alt_mult_", id, "_", i)]]
+
+            fr  <- suppressWarnings(as.integer(if (!is.null(fr_in))  fr_in  else df$fran[i]))
+            til <- suppressWarnings(as.integer(if (!is.null(til_in)) til_in else df$till[i]))
+            mu  <- parse_decimal(if (!is.null(mu_in)) mu_in else df$mult[i],
+                                 default = as.numeric(df$mult[i]))
             list(
-              från_år       = as.integer(df$fran[i]),
-              till_år       = as.integer(df$till[i]),
-              multiplikator = as.numeric(df$mult[i])
+              från_år       = fr,
+              till_år       = til,
+              multiplikator = mu
             )
           })
           list(perioder = perioder)
@@ -184,7 +194,8 @@ server_config <- function(input, output, session, app_kontext) {
       riskparametrar         = riskparametrar,
       alternativ_justeringar = alternativ_justeringar,
 
-      avrundning                                     = "heltal",
+      avrundning                                     = input$avrundning %||% "ingen",
+      metod_avstamning_regional                      = input$metod_avstamning_regional %||% "minsta_kvadrat",
       bevara_summa_auto_spline_utvandring            = FALSE,
       bevara_summa_auto_spline_inflyttning_lansgrans = FALSE,
       bevara_summa_auto_spline_inflyttning           = TRUE,
@@ -196,6 +207,84 @@ server_config <- function(input, output, session, app_kontext) {
       dodsfall_fore_aldring = isTRUE(input$dodsfall_fore_aldring)
     )
   }
+
+  # ------------------------------------------------------------------
+  # Spara/ladda inställningar (antaganden + reviderade komponenter)
+  # ------------------------------------------------------------------
+
+  # Spara: skickar JSON till klienten som öppnar webbläsarens
+  # Save As-dialog via showSaveFilePicker (Chrome/Edge) — eller faller
+  # tillbaka på vanlig nedladdning (Firefox/Safari).
+  observeEvent(input$spara_installningar_btn, {
+    obj <- bygg_installningar_objekt(input, alt_perioder)
+    json_text <- jsonlite::toJSON(
+      obj,
+      pretty     = TRUE,
+      auto_unbox = TRUE,
+      null       = "null",
+      na         = "null"
+    )
+    default_namn <- paste0(
+      "befolkningsprognos_installningar_",
+      format(Sys.time(), "%Y%m%d_%H%M"),
+      ".json"
+    )
+    session$sendCustomMessage("spara_installningar_filer", list(
+      filnamn  = default_namn,
+      innehall = as.character(json_text)
+    ))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$spara_status, {
+    st <- input$spara_status
+    if (isTRUE(st$ok)) {
+      showNotification("✅ Inställningar sparade", type = "message", duration = 4)
+    } else if (!is.null(st$fel)) {
+      showNotification(
+        paste("❌ Kunde inte spara filen:", st$fel),
+        type = "error", duration = 10
+      )
+    }
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$ladda_installningar_fil, {
+    fil <- input$ladda_installningar_fil
+    req(fil)
+
+    obj <- tryCatch(
+      jsonlite::fromJSON(fil$datapath, simplifyVector = FALSE),
+      error = function(e) {
+        showNotification(
+          paste("❌ Kunde inte läsa filen som JSON:", conditionMessage(e)),
+          type = "error", duration = 10
+        )
+        NULL
+      }
+    )
+    if (is.null(obj)) return()
+
+    validering <- validera_installningar(obj)
+    if (!isTRUE(validering$ok)) {
+      fel_html <- paste0(
+        "<b>❌ Filen kunde inte läsas in</b>",
+        "<ul style='margin-top:6px; padding-left:20px;'>",
+        paste0("<li>", validering$fel, "</li>", collapse = ""),
+        "</ul>"
+      )
+      showNotification(HTML(fel_html), type = "error", duration = 15)
+      return()
+    }
+
+    applicera_installningar(obj, session, alt_perioder)
+    har_revidering <- !is.null(obj$alternativ_justeringar)
+    msg <- if (har_revidering) {
+      "✅ Antaganden och reviderade komponenter har laddats"
+    } else {
+      "✅ Antaganden har laddats"
+    }
+    showNotification(msg, type = "message", duration = 5)
+  }, ignoreInit = TRUE)
+
 
   observeEvent(input$kor, {
     app_kontext$konfiguration <- samla_konfiguration_fran_input(input)
@@ -307,3 +396,4 @@ server_config <- function(input, output, session, app_kontext) {
 
   }, ignoreInit = TRUE)
 }
+

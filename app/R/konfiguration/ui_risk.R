@@ -43,13 +43,14 @@ risk_ui <- function(id,
       3,
       conditionalPanel(
         condition = sprintf("input['risk_vtyp_%s'] == '3'", id),
-        numericInput(
+        textInput(
           paste0("risk_alpha_", id),
           NULL,
-          value = if (is.na(default_alpha)) 0.33 else default_alpha,
-          min = 0.1,
-          max = 0.9,
-          step = 0.01
+          value = format_decimal(
+            if (is.na(default_alpha)) 0.33 else default_alpha,
+            decimals = 2
+          ),
+          placeholder = "0,33"
         )
       )
     )
