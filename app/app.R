@@ -56,7 +56,6 @@ ui <- page_navbar(
   title = "Befolkningsprognos",
   id    = "huvud_nav",
 
-
   header = tagList(
     shinyjs::useShinyjs(),
     tags$head(
