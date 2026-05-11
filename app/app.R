@@ -4,7 +4,6 @@ library(bslib)
 library(ggplot2)
 library(ggiraph)
 library(dplyr)
-library(tibble)
 library(tidyr)
 library(purrr)
 library(dbplyr)
@@ -56,9 +55,12 @@ ui <- page_navbar(
   title = "Befolkningsprognos",
   id    = "huvud_nav",
 
+
   header = tagList(
     shinyjs::useShinyjs(),
     tags$head(
+      tags$link(rel = "icon", type = "image/x-icon", href = "favicon.ico"),
+      tags$link(rel = "shortcut icon", type = "image/x-icon", href = "favicon.ico"),
       tags$link(rel = "stylesheet", type = "text/css", href = "app.css")
     )
   ),
