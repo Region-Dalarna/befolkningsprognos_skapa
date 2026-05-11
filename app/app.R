@@ -32,7 +32,6 @@ source("R/resultat/ui_resultat.R")
 source("R/resultat/server_resultat.R")
 
 source("R/domain/geografi_data.R")
-#source("R/funktioner/hjalpfunktioner.R")
 
 source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_shinyappar.R", encoding = "utf-8", echo = FALSE)
 
