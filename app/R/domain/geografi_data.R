@@ -9,6 +9,13 @@ hamta_geografi_val <- function() {
 
   geo_df <- hamtaregtab()
 
+  con <- shiny_uppkoppling_las("oppna_data")                                                  # skapa anslutning
+  geo_df <- tbl(con, dbplyr::in_schema("scb", "totfolkmangd")) %>%      # använd dbplyr för att hämta delar av tabellen
+    distinct(regionkod, region) %>%
+    collect()                                                               # transformera till WGS84 för användning i leaflet
+  DBI::dbDisconnect(con)
+
+
   rk <- as.character(geo_df$regionkod)
   rk_num <- suppressWarnings(as.integer(rk))
   rk <- ifelse(!is.na(rk_num) & rk_num < 100, sprintf("%02d", rk_num),
