@@ -691,7 +691,7 @@ server_resultat <- function(input, output, session, app_kontext) {
       r$konfiguration$enskild_geografi$namn
     # Tillåt alla unicode-bokstäver (åäö m.fl.) och siffror i filnamnet.
     geo_safe <- gsub("[^\\p{L}\\p{N}_-]+", "_", geo %||% "prognos", perl = TRUE)
-    paste0("befolkningsprognos_", geo_safe, "_",
+    paste0("Befolkningsprognos_", geo_safe, "_",
            format(Sys.time(), "%Y%m%d_%H%M"), ".xlsx")
   }
 
@@ -723,13 +723,6 @@ server_resultat <- function(input, output, session, app_kontext) {
         type = "error", duration = 10
       )
     }
-  }, ignoreInit = TRUE)
-
-  # Auto-trigga sparning när ett nytt prognosresultat finns.
-  # Eftersom auto-anropet saknar användargest faller JS-handlern
-  # tillbaka till vanlig nedladdning (utan Save As-dialog).
-  observeEvent(res(), {
-    .skicka_prognos_excel(res())
   }, ignoreInit = TRUE)
 
 }

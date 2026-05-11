@@ -630,11 +630,12 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
       total_bef  <- sum(ny_befolkning$varde)
       netto_bef  <- sum(befolkning_forandringar$Nettoforändring) +
         sum(fodda_resultat$fodda$varde)
+      netto_bef_heltal <- as.integer(round(netto_bef, 0))
       message(paste0("    Total befolkning: ",
                      format(total_bef, big.mark = " "),
                      " (förändring: ",
-                     ifelse(netto_bef >= 0, "+", ""),
-                     format(netto_bef, big.mark = " "), ")"))
+                     ifelse(netto_bef_heltal >= 0, "+", ""),
+                     format(netto_bef_heltal, big.mark = " "), ")"))
     }
 
     # --- Sammanställ ---
