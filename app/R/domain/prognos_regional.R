@@ -1106,11 +1106,12 @@ kor_prognos_regional_in_memory <- function(underlag, risktal, konfiguration) {
       forandring <- sum(befolkning_forandringar$Nettoforändring[
         befolkning_forandringar$region == lan_namn]) +
         sum(fodda_rapport_final$varde[fodda_rapport_final$region == lan_namn])
+      forandring_heltal <- as.integer(round(forandring, 0))
       message(paste0("    ", lan_namn, " total: ",
                      format(total_bef, big.mark = " "),
                      " (förändring: ",
-                     ifelse(forandring >= 0, "+", ""),
-                     format(forandring, big.mark = " "), ")"))
+                     ifelse(forandring_heltal >= 0, "+", ""),
+                     format(forandring_heltal, big.mark = " "), ")"))
     }
 
     # --- Sammanställ per region ---
@@ -1193,4 +1194,3 @@ kor_prognos_regional_in_memory <- function(underlag, risktal, konfiguration) {
     kommun_resultat = region_resultat
   )
 }
-
