@@ -5,7 +5,7 @@ hamta_geografi_val <- function() {
 
   if (!is.null(.geo_cache)) return(.geo_cache)
 
-  source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_API.R", encoding = "utf-8", echo = FALSE)
+  #source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_API.R", encoding = "utf-8", echo = FALSE)
 
   geo_df <- hamtaregtab()
 
