@@ -42,14 +42,56 @@ kor_prognos_regional_in_memory <- function(underlag, risktal, konfiguration) {
   riket_lista  <- underlag$riket_lista
 
   # Härleda kommuner från data (alla regioner i kommun_lista utom länet och Riket)
-  kommuner <- setdiff(
+  alla_regioner_i_data <- setdiff(
     unique(as.character(kommun_lista$totfolkmangd$region)),
     c(lan_namn, "Riket")
   )
 
-  if (length(kommuner) == 0) {
-    stop(paste("Inga kommuner identifierade för länet", lan_namn))
+  # Filtrera till kommuner som faktiskt tillhör det valda länet.
+  # Kommunkoder är 4-siffriga och börjar med länets 2-siffriga kod.
+  kommuner <- alla_regioner_i_data
+  geo_data <- tryCatch(hamta_geografi_val(), error = function(e) NULL)
+
+  lan_kod_str <- NA_character_
+  if (!is.null(geo_data) && !is.null(geo_data$lan_val)) {
+    # Slå upp länets 2-siffriga kod via namnet (säker enkel-hakparentes -> NA vid miss)
+    lan_kod_str <- unname(as.character(geo_data$lan_val[lan_namn]))
   }
+
+  # Fallback: använd konfigurationens lan_kod om namn-uppslag misslyckas
+  if (is.na(lan_kod_str) || !nzchar(lan_kod_str)) {
+    raw_kod <- konfiguration$regional_installningar$lan_kod
+    raw_int <- suppressWarnings(as.integer(raw_kod))
+    if (!is.na(raw_int)) lan_kod_str <- sprintf("%02d", raw_int)
+  }
+
+  if (!is.na(lan_kod_str) && nzchar(lan_kod_str) &&
+      !is.null(geo_data) && !is.null(geo_data$enskild_val$Kommun)) {
+    kommun_kod_lookup <- geo_data$enskild_val$Kommun  # namn -> 4-siffrig kod
+    # Enkel hakparentes ger NA för namn som saknas (ingen subscript-out-of-bounds).
+    kommun_koder <- as.character(kommun_kod_lookup[alla_regioner_i_data])
+    kommuner <- alla_regioner_i_data[
+      !is.na(kommun_koder) & substr(kommun_koder, 1, 2) == lan_kod_str
+    ]
+  }
+
+  if (length(kommuner) == 0) {
+    stop(paste0(
+      "Inga kommuner identifierade för länet '", lan_namn, "'.\n",
+      "Kontrollera att länsnamnet matchar geografi-tabellen ",
+      "(och att 'lan_kod' i konfigurationen är en 2-siffrig kod, t.ex. \"20\")."
+    ))
+  }
+
+  # Begränsa även underlaget så att riskberäkningar och prognos endast
+  # arbetar med länet och dess kommuner (övriga riksdata behålls i riket_lista).
+  begransa_till_regioner <- function(tbl, behall_regioner) {
+    if (!is.data.frame(tbl) || !"region" %in% names(tbl)) return(tbl)
+    dplyr::filter(tbl, region %in% behall_regioner)
+  }
+  behall <- c(lan_namn, kommuner, "Riket")
+  kommun_lista <- purrr::map(kommun_lista, begransa_till_regioner, behall_regioner = behall)
+  underlag$kommun_lista <- kommun_lista
 
   # Förbered basbefolkning
   basbefolkning_kommun <- kommun_lista$totfolkmangd %>%
@@ -1151,3 +1193,4 @@ kor_prognos_regional_in_memory <- function(underlag, risktal, konfiguration) {
     kommun_resultat = region_resultat
   )
 }
+
