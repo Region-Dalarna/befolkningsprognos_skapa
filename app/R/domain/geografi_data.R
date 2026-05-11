@@ -5,10 +5,6 @@ hamta_geografi_val <- function() {
 
   if (!is.null(.geo_cache)) return(.geo_cache)
 
-  #source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_API.R", encoding = "utf-8", echo = FALSE)
-
-  geo_df <- hamtaregtab()
-
   con <- shiny_uppkoppling_las("oppna_data")                                                  # skapa anslutning
   geo_df <- tbl(con, dbplyr::in_schema("scb", "totfolkmangd")) %>%      # använd dbplyr för att hämta delar av tabellen
     distinct(regionkod, region) %>%
