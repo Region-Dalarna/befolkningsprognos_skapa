@@ -10,7 +10,6 @@
 #     inrikes_utflyttning, invandring, utvandring  (utan svenska specialtecken).
 #   - Risktal hämtas som tibble direkt ur risktal-listan (risktal$fodelserisker etc.).
 
-
 # ===========================================================
 # HJÄLPFUNKTIONER – VIKTER OCH JUSTERINGSTEXTER
 # ===========================================================
