@@ -1,4 +1,5 @@
-name: Deploy ${{ github.event.repository.name }}
+name: Deploy Shiny app
+run-name: Deploy ${{ github.event.repository.name }} → ${{ github.ref_name == 'publicera-intern' && 'intern' || 'publik' }}
 
 on:
   push:
