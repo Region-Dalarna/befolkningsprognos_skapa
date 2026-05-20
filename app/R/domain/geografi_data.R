@@ -1,4 +1,7 @@
-# Enkel cache så att nätverksanropet bara görs en gång per Shiny-session
+# Enkel cache så att nätverksanropet bara görs en gång per R-process.
+# OBS: cachen delas mellan alla samtidiga Shiny-sessioner. Det är OK här
+# eftersom innehållet är statiskt och identiskt för alla användare
+# (en namnlista över geografier). Lägg inte användarspecifik data här.
 .geo_cache <- NULL
 
 hamta_geografi_val <- function() {

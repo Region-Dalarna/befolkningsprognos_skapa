@@ -10,7 +10,7 @@ info_ikon <- function(text) {
   )
 }
 
-ui_config <- function(app_kontext, lan_i_data, geografier_i_data) {
+ui_config <- function(lan_i_data, geografier_i_data) {
 
   geo <- hamta_geografi_val()
   lan_val <- lan_i_data
@@ -383,7 +383,7 @@ ui_config <- function(app_kontext, lan_i_data, geografier_i_data) {
       uiOutput("korstatus"),
       actionButton(
         "kor",
-        "🚀 Kör prognos",
+        "Kör prognos",
         class = "btn-primary btn-lg"
       )
     )

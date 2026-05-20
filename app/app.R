@@ -11,8 +11,6 @@ library(scales)
 library(openxlsx)
 library(shinyjs)
 
-source("R/kontext.R")
-
 source("R/domain/prognos_kor.R")
 source("R/domain/data_provider.R")
 source("R/domain/risk_kor.R")
@@ -67,14 +65,14 @@ ui <- page_navbar(
 
   nav_panel(
     "1. Konfiguration",
-    ui_config(app_kontext, lan_i_data, geografier_i_data)
+    ui_config(lan_i_data, geografier_i_data)
   ),
 
   nav_panel(
     "2. Resultat",
     conditionalPanel(
       condition = "output.fas == 'resultat'",
-      ui_resultat(app_kontext)
+      ui_resultat()
     ),
     conditionalPanel(
       condition = "output.fas != 'resultat'",
@@ -88,6 +86,14 @@ ui <- page_navbar(
 )
 
 server <- function(input, output, session) {
+
+  ## Per-session-tillstånd: skapas en gång per ansluten användare
+  ## så att olika webbläsare/sessioner inte delar samma reactiveValues.
+  app_kontext <- reactiveValues(
+    konfiguration = NULL,              # konfiguration (ersätter konfig-R-fil)
+    resultat      = NULL,              # prognosresultat i minnet
+    fas           = "konfiguration"    # "konfiguration" | "korning" | "resultat"
+  )
 
   ## 2.1 – exponera fas till UI
   output$fas <- reactive({

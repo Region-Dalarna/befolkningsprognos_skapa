@@ -1,4 +1,4 @@
-ui_resultat <- function(app_kontext) {
+ui_resultat <- function() {
   tagList(
 
     # JS-bro för "Save as"-dialog vid spara av prognos (Excel).
