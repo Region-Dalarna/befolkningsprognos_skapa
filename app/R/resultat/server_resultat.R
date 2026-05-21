@@ -514,13 +514,14 @@ server_resultat <- function(input, output, session, app_kontext) {
       konfig$enskild_geografi$namn
 
     generellt <- data.frame(
-      Inställning = c("Prognostyp", "Scenario", "Slutår", "Geografi", "Avrundning"),
+      Inställning = c("Prognostyp", "Scenario", "Slutår", "Geografi", "Avrundning", "Prognosen kördes"),
       Värde = c(
         konfig$prognostyp %||% "",
         scenario,
         as.character(konfig$prognos_slut %||% ""),
         geografi %||% "",
-        konfig$avrundning %||% ""
+        konfig$avrundning %||% "",
+        format(Sys.time(), "%Y-%m-%d %H:%M")
       ),
       stringsAsFactors = FALSE
     )
@@ -676,7 +677,8 @@ server_resultat <- function(input, output, session, app_kontext) {
                           startRow = rad, startCol = 1)
     }
 
-    openxlsx::setColWidths(wb, "antaganden", cols = 1:6, widths = "auto")
+    openxlsx::setColWidths(wb, "antaganden", cols = 3:6, widths = "auto")
+    openxlsx::setColWidths(wb, "antaganden", cols = 1:2, widths = 40)
 
     tmp <- tempfile(fileext = ".xlsx")
     openxlsx::saveWorkbook(wb, tmp, overwrite = TRUE)
@@ -685,14 +687,25 @@ server_resultat <- function(input, output, session, app_kontext) {
 
   # Förslag på filnamn — samma format som tidigare.
   .prognos_filnamn <- function(r) {
-    geo <- if (isTRUE(r$konfiguration$prognostyp == "regional"))
+    er_regional <- isTRUE(r$konfiguration$prognostyp == "regional")
+    geo <- if (er_regional)
       r$konfiguration$regional_installningar$lan
     else
       r$konfiguration$enskild_geografi$namn
     # Tillåt alla unicode-bokstäver (åäö m.fl.) och siffror i filnamnet.
     geo_safe <- gsub("[^\\p{L}\\p{N}_-]+", "_", geo %||% "prognos", perl = TRUE)
-    paste0("Befolkningsprognos_", geo_safe, "_",
-           format(Sys.time(), "%Y%m%d_%H%M"), ".xlsx")
+
+    typdel <- if (er_regional) "lan_kommuner_" else "kommun_"
+
+    forsta_ar <- tryCatch(
+      min(as.integer(r$prognos$totalbefolkning$ar), na.rm = TRUE),
+      error = function(e) NA_integer_,
+      warning = function(w) NA_integer_
+    )
+    arsdel <- if (is.na(forsta_ar)) "" else as.character(forsta_ar)
+
+    paste0("Befolkningsprognos_", geo_safe, "_", typdel,
+           "prognosar", arsdel, ".xlsx")
   }
 
   # Bygger Excel, base64-kodar och skickar till klienten. JS-handlern
