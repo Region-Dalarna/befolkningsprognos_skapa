@@ -24,8 +24,9 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
   set.seed(2025)  # För reproducerbarhet vid stokastisk avrundning
 
   # --- Lokala variabler som ersätter globaler ---
-  AVRUNDNING <- konfiguration$avrundning %||% "heltal"
-  geografi   <- konfiguration$enskild_geografi$namn
+  AVRUNDNING            <- konfiguration$avrundning %||% "heltal"
+  dodsfall_fore_aldring <- isTRUE(konfiguration$dodsfall_fore_aldring %||% TRUE)
+  geografi              <- konfiguration$enskild_geografi$namn
 
   if (is.null(geografi) || is.na(geografi) || nchar(trimws(geografi)) == 0) {
     stop("konfiguration$enskild_geografi$namn saknas eller är tomt")
@@ -543,44 +544,53 @@ kor_prognos_enskild_in_memory <- function(underlag, risktal, konfiguration) {
     for (prognos_ar in as.character(startår:slutår)) {
       message(paste0("  Beräknar år ", prognos_ar, "..."))
 
-      # 1. Åldra befolkning
+      # 1. Sätt ingående befolkning
       if (prognos_ar == as.character(startår)) {
-        aktuell_befolkning <- basbefolkning %>%
+        ingaende_befolkning <- basbefolkning %>%
           mutate(ar = .env$prognos_ar)
-        aktuell_befolkning <- aldra_befolkning(aktuell_befolkning)
       } else {
-        aktuell_befolkning <- alla_resultat[[
+        ingaende_befolkning <- alla_resultat[[
           as.character(as.numeric(prognos_ar) - 1)]]$befolkning %>%
           mutate(ar = .env$prognos_ar)
-        aktuell_befolkning <- aldra_befolkning(aktuell_befolkning)
       }
 
-      # 2. Födda
+      # 2. Beräkna döda på ingående befolkning ELLER åldra först
+      #    (samma logik som i prognos_regional.R)
+      if (dodsfall_fore_aldring) {
+        doda <- berakna_doda(ingaende_befolkning, risktal$dodsrisker)
+        aktuell_befolkning <- aldra_befolkning(ingaende_befolkning)
+      } else {
+        aktuell_befolkning <- aldra_befolkning(ingaende_befolkning)
+      }
+
+      # 3. Födda
       fodda_resultat <- berakna_fodda(
         aktuell_befolkning, risktal$fodelserisker, prognos_ar)
       aktuell_befolkning <- bind_rows(
         aktuell_befolkning, fodda_resultat$fodda)
 
-      # 3. Döda
-      doda <- berakna_doda(aktuell_befolkning, risktal$dodsrisker)
+      # 4. Döda (om gammal metod: efter åldring, inkl. nyfödda)
+      if (!dodsfall_fore_aldring) {
+        doda <- berakna_doda(aktuell_befolkning, risktal$dodsrisker)
+      }
 
-      # 4. Inrikes inflyttning
+      # 5. Inrikes inflyttning
       inrikes_inflyttningar <- berakna_inrikes_inflyttningar(
         risktal$inflyttningsrisker, riksbefolkning_prognos, prognos_ar, geografi)
 
-      # 5. Inrikes utflyttning
+      # 6. Inrikes utflyttning
       inrikes_utflyttningar <- berakna_inrikes_utflyttningar(
         aktuell_befolkning, risktal$utflyttningsrisker)
 
-      # 6. Invandring
+      # 7. Invandring
       invandring <- berakna_invandring(
         risktal$invandringsrisker, invandring_till_riket_prognos, prognos_ar, geografi)
 
-      # 7. Utvandring
+      # 8. Utvandring
       utvandring <- berakna_utvandring(
         aktuell_befolkning, risktal$utvandringsrisker)
 
-      # 8. Netto
+      # 9. Netto
       befolkning_komponenter <- bind_rows(
         fodda_resultat$fodda_rapport, doda,
         inrikes_inflyttningar, inrikes_utflyttningar,

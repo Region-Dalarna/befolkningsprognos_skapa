@@ -11,6 +11,22 @@ server_config <- function(input, output, session, app_kontext) {
     list(id="utvandringsrisker",  label="Utvandringsrisker",  def_fran=2026, def_mult=1.00)
   )
 
+  # Synkar tillbaka ev. redigerade värden från UI-inputs till en alt_perioder-df.
+  # Behövs eftersom numericInput/textInput-fälten i renderUI inte automatiskt
+  # speglas tillbaka till reactiveVal:en – utan synk skrivs användarens
+  # redigeringar över nästa gång renderUI körs (t.ex. vid "Lägg till period").
+  synka_df_fran_input <- function(df, kid, input) {
+    for (i in seq_len(nrow(df))) {
+      fr_in  <- input[[paste0("alt_fran_", kid, "_", i)]]
+      til_in <- input[[paste0("alt_till_", kid, "_", i)]]
+      mu_in  <- input[[paste0("alt_mult_", kid, "_", i)]]
+      if (!is.null(fr_in))  df$fran[i] <- as.integer(fr_in)
+      if (!is.null(til_in)) df$till[i] <- as.integer(til_in)
+      if (!is.null(mu_in))  df$mult[i] <- parse_decimal(mu_in, default = df$mult[i])
+    }
+    df
+  }
+
   # 2. Skapa reactiveVal per komponent (alt_perioder)
   alt_perioder <- lapply(komp_lista, function(k) {
     reactiveVal(
@@ -77,14 +93,25 @@ server_config <- function(input, output, session, app_kontext) {
         )
       })
 
-      # Lägg till ny period: default till = prognos_slut
+      # Lägg till ny period: "Från år" = föregående periods "Till år" + 1
       observeEvent(input[[paste0("alt_add_", kid)]], {
         df <- alt_perioder[[kid]]()
+        df <- synka_df_fran_input(df, kid, input)
+
+        # Ny periods startår ansluter direkt efter föregående periods slutår
+        foreg_till <- df$till[nrow(df)]
+        nytt_fran  <- if (!is.na(foreg_till)) as.integer(foreg_till) + 1L else def_fran
+
+        # Om det nya startåret redan passerat prognosens slutår,
+        # backa till prognos_slut så att Från år <= Till år
+        prognos_slut_int <- as.integer(input$prognos_slut)
+        nytt_till <- max(nytt_fran, prognos_slut_int)
+
         df <- rbind(
           df,
           data.frame(
-            fran = def_fran,
-            till = as.integer(input$prognos_slut),
+            fran = nytt_fran,
+            till = nytt_till,
             mult = def_mult,
             stringsAsFactors = FALSE
           )
@@ -95,11 +122,13 @@ server_config <- function(input, output, session, app_kontext) {
       # Ta bort sista period (minst 1 rad kvar)
       observeEvent(input[[paste0("alt_del_", kid)]], {
         df <- alt_perioder[[kid]]()
+        df <- synka_df_fran_input(df, kid, input)
         if (nrow(df) > 1) {
           df <- df[-nrow(df), , drop = FALSE]
           alt_perioder[[kid]](df)
         }
       }, ignoreInit = TRUE)
+
     })
   }
 
