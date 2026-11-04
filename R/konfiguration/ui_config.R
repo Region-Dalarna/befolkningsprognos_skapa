@@ -380,6 +380,11 @@ ui_config <- function(lan_i_data, geografier_i_data) {
 
     div(
       class = "config-footer",
+      tags$div(
+        class = "app-footer",
+        "Samhällsanalys, Region Dalarna · ",
+        tags$a(href = "mailto:samhallsanalys@regiondalarna.se", "samhallsanalys@regiondalarna.se")
+      ),
       uiOutput("korstatus"),
       actionButton(
         "kor",

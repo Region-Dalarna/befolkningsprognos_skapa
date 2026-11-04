@@ -107,6 +107,15 @@ ui <- page_navbar(
         h4("Resultat är inte tillgängliga än"),
         p("Genomför först en prognoskörning.")
       )
+    ),
+
+    # ---- Footer (matchar .rd-footer i övriga Shiny-appar) ----------------
+    # Konfigurations-fliken har sin egen motsvarighet inbyggd i
+    # .config-footer (bredvid "Kör prognos"-knappen), se ui_config.R.
+    tags$footer(
+      class = "app-footer",
+      "Samhällsanalys, Region Dalarna · ",
+      tags$a(href = "mailto:samhallsanalys@regiondalarna.se", "samhallsanalys@regiondalarna.se")
     )
   ),
 
@@ -117,13 +126,6 @@ ui <- page_navbar(
       target = "_blank",
       tags$img(src = "logo_liggande_fri_vit.png", alt = "Region Dalarna", style = "height: 28px;")
     )
-  ),
-
-  # ---- Footer (matchar .rd-footer i övriga Shiny-appar) ------------------
-  footer = tags$footer(
-    class = "app-footer",
-    "Samhällsanalys, Region Dalarna · ",
-    tags$a(href = "mailto:samhallsanalys@regiondalarna.se", "samhallsanalys@regiondalarna.se")
   )
 )
 
