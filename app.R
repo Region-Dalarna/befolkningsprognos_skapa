@@ -63,8 +63,11 @@ rd_font <- font_collection(
   "Arial", "Helvetica", "sans-serif"
 )
 
+APP_TITEL <- "Skapa befolkningsprognoser"
+APP_BESKRIVNING <- "Verktyg för att konfigurera och ta fram egna befolkningsprognoser för valfri geografi."
+
 ui <- page_navbar(
-  title = "Skapa befolkningsprognoser",
+  title = APP_TITEL,
   id    = "huvud_nav",
 
   theme = bs_theme(
