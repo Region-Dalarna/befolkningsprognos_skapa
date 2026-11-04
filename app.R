@@ -117,6 +117,13 @@ ui <- page_navbar(
       target = "_blank",
       tags$img(src = "logo_liggande_fri_vit.png", alt = "Region Dalarna", style = "height: 28px;")
     )
+  ),
+
+  # ---- Footer (matchar .rd-footer i övriga Shiny-appar) ------------------
+  footer = tags$footer(
+    class = "app-footer",
+    "Samhällsanalys, Region Dalarna · ",
+    tags$a(href = "mailto:samhallsanalys@regiondalarna.se", "samhallsanalys@regiondalarna.se")
   )
 )
 
