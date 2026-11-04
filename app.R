@@ -32,9 +32,6 @@ source("R/domain/geografi_data.R")
 
 source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_shinyappar.R", encoding = "utf-8", echo = FALSE)
 
-# ---- Telemetri (användningsstatistik, se Adminportalen) --------------------
-telemetry <- skapa_telemetry("befolkningsprognos_skapa")
-
 geo_db <- tbl(
   shiny_uppkoppling_las("oppna_data"),
   dbplyr::in_schema("scb", "totfolkmangd")
@@ -52,37 +49,17 @@ lan_i_data <- geo_db %>%
   dplyr::pull(region) %>%
   sort()
 
-# ---- Region Dalarnas grafiska profil: petrolblå + Poppins (självhostat,
-# samma typsnittsfiler som brott/utbildning/branscher/befolkning) --------
-rd_font <- font_collection(
-  font_face(family = "Poppins", weight = 300, src = "url('fonts/poppins-v24-latin-300.woff2') format('woff2')"),
-  font_face(family = "Poppins", weight = 400, src = "url('fonts/poppins-v24-latin-regular.woff2') format('woff2')"),
-  font_face(family = "Poppins", weight = 500, src = "url('fonts/poppins-v24-latin-500.woff2') format('woff2')"),
-  font_face(family = "Poppins", weight = 600, src = "url('fonts/poppins-v24-latin-600.woff2') format('woff2')"),
-  font_face(family = "Poppins", weight = 700, src = "url('fonts/poppins-v24-latin-700.woff2') format('woff2')"),
-  "Arial", "Helvetica", "sans-serif"
-)
-
 ui <- page_navbar(
-  title = "Skapa befolkningsprognoser",
+  title = "Befolkningsprognos",
   id    = "huvud_nav",
 
-  theme = bs_theme(
-    primary      = "#158daf",
-    base_font    = rd_font,
-    heading_font = rd_font
-  ),
-  navbar_options = navbar_options(bg = "#158daf", theme = "dark"),
 
   header = tagList(
     shinyjs::useShinyjs(),
     tags$head(
       tags$link(rel = "icon", type = "image/x-icon", href = "favicon.ico"),
       tags$link(rel = "shortcut icon", type = "image/x-icon", href = "favicon.ico"),
-      tags$link(rel = "stylesheet", type = "text/css", href = "app.css"),
-
-      # använd telemetry-paketet om det finns konfigurerat på maskinen (kommer att fungera på servrarna men ignoreras om man kör appen lokalt)
-      telemetri_ui(telemetry)
+      tags$link(rel = "stylesheet", type = "text/css", href = "app.css")
     )
   ),
 
@@ -105,21 +82,10 @@ ui <- page_navbar(
         p("Genomför först en prognoskörning.")
       )
     )
-  ),
-
-  nav_spacer(),
-  nav_item(
-    tags$a(
-      href = "https://www.regiondalarna.se",
-      target = "_blank",
-      tags$img(src = "logo_liggande_fri_vit.png", alt = "Region Dalarna", style = "height: 28px;")
-    )
   )
 )
 
 server <- function(input, output, session) {
-
-  telemetri_server(telemetry, navigation_id = "huvud_nav", forsta_flik = "1. Konfiguration")
 
   ## Per-session-tillstånd: skapas en gång per ansluten användare
   ## så att olika webbläsare/sessioner inte delar samma reactiveValues.
