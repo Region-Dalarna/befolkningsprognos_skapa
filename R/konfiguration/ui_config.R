@@ -380,16 +380,20 @@ ui_config <- function(lan_i_data, geografier_i_data) {
 
     div(
       class = "config-footer",
-      tags$div(
-        class = "app-footer",
-        "Samhällsanalys, Region Dalarna · ",
-        tags$a(href = "mailto:samhallsanalys@regiondalarna.se", "samhallsanalys@regiondalarna.se")
+      div(), # tom vänsterspalt, speglar config-footer-actions så mittkolumnen blir centrerad
+      tags$a(
+        class = "config-footer-kontakt",
+        href  = "mailto:samhallsanalys@regiondalarna.se",
+        "Samhällsanalys"
       ),
-      uiOutput("korstatus"),
-      actionButton(
-        "kor",
-        "Kör prognos",
-        class = "btn-primary btn-lg"
+      div(
+        class = "config-footer-actions",
+        uiOutput("korstatus"),
+        actionButton(
+          "kor",
+          "Kör prognos",
+          class = "btn-primary btn-lg"
+        )
       )
     )
   )
