@@ -64,15 +64,6 @@ hamta_underlag_stub <- function(konfiguration) {
 #' @return list(kommun_lista = ..., riket_lista = ...) enligt kontraktet ovan.
 hamta_underlag_db <- function(konfiguration) {
 
-  # Source DB-hjälpfunktionen vid behov (bara en gång per session)
-  if (!exists("shiny_uppkoppling_las", mode = "function")) {
-    source(
-      "https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_shinyappar.R",
-      encoding = "utf-8",
-      echo     = FALSE
-    )
-  }
-
   uppkoppling <- shiny_uppkoppling_las("oppna_data")
 
   # Hjälpfunktion: hämta en tabell, prova alternativa namn (t.ex. med/utan å).
