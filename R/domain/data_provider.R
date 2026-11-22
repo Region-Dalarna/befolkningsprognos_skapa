@@ -56,7 +56,6 @@ hamta_underlag_stub <- function(konfiguration) {
 #' Hämta underlag från Region Dalarnas interna databas (oppna_data / scb-schema).
 #'
 #' Använder `shiny_uppkoppling_las()` från Region-Dalarnas hjälpbibliotek.
-#' Funktionen sourcear automatiskt `func_shinyappar.R` första gången den anropas.
 #'
 #' @param konfiguration list – konfigurationslista från Shiny (används ej för
 #'   filtrering här; all filtrering sker i riskberäknings- och
