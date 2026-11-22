@@ -10,6 +10,9 @@ library(dbplyr)
 library(scales)
 library(openxlsx)
 library(shinyjs)
+library(DBI)
+library(RPostgres)
+library(rdshinyappar)
 
 source("R/domain/prognos_kor.R")
 source("R/domain/data_provider.R")
@@ -29,8 +32,6 @@ source("R/resultat/ui_resultat.R")
 source("R/resultat/server_resultat.R")
 
 source("R/domain/geografi_data.R")
-
-source("https://raw.githubusercontent.com/Region-Dalarna/funktioner/main/func_shinyappar.R", encoding = "utf-8", echo = FALSE)
 
 # ---- Telemetri (användningsstatistik, se Adminportalen) --------------------
 telemetry <- skapa_telemetry("befolkningsprognos_skapa")
